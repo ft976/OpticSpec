@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useMemo} from 'react';
 import {
   Upload,
   Copy,
@@ -12,15 +12,30 @@ import {
 } from 'lucide-react';
 import {extractImageTelemetryAndCompress} from '@/lib/pixel-telemetry';
 
+function extractSectionCMasterPrompt(fullOutput: string): string | null {
+  const match = fullOutput.match(
+    /(?:###?\s*C\.?\s*Final Master Prompt|\*\*C\.?\s*Final Master Prompt\*\*)([\s\S]*?)(?=(?:###?\s*D\.?\s*Negative Prompt|\*\*D\.?\s*Negative Prompt\*\*|$))/i
+  );
+  if (!match || !match[1]) return null;
+  const cleaned = match[1].trim();
+  return cleaned.length > 30 ? cleaned : null;
+}
+
 export default function OpticSpecStudio() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [promptOutput, setPromptOutput] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [copied, setCopied] = useState<boolean>(false);
+  const [copiedFull, setCopiedFull] = useState<boolean>(false);
+  const [copiedMasterOnly, setCopiedMasterOnly] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const masterPromptOnly = useMemo(
+    () => extractSectionCMasterPrompt(promptOutput),
+    [promptOutput]
+  );
 
   const analyzeImage = async (dataUrl: string) => {
     setErrorMsg(null);
@@ -29,7 +44,7 @@ export default function OpticSpecStudio() {
 
     try {
       const {compressedDataUrl, telemetry} =
-        await extractImageTelemetryAndCompress(dataUrl, 1024);
+        await extractImageTelemetryAndCompress(dataUrl, 840);
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -108,11 +123,18 @@ export default function OpticSpecStudio() {
     return () => window.removeEventListener('paste', onPaste);
   });
 
-  const handleCopy = () => {
+  const handleCopyFull = () => {
     if (!promptOutput) return;
     navigator.clipboard.writeText(promptOutput);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedFull(true);
+    setTimeout(() => setCopiedFull(false), 2000);
+  };
+
+  const handleCopyMasterOnly = () => {
+    if (!masterPromptOnly) return;
+    navigator.clipboard.writeText(masterPromptOnly);
+    setCopiedMasterOnly(true);
+    setTimeout(() => setCopiedMasterOnly(false), 2000);
   };
 
   const handleReset = () => {
@@ -256,39 +278,61 @@ export default function OpticSpecStudio() {
           </div>
         )}
 
-        {/* 2. DIRECT UNBOXED PROMPT OUTPUT */}
+        {/* 2. DIRECT UNBOXED PROMPT & ANALYSIS OUTPUT */}
         {(isAnalyzing || promptOutput) && (
           <div className="space-y-4 pt-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 {isAnalyzing && (
                   <RefreshCw className="w-4 h-4 text-[#76B900] animate-spin" />
                 )}
                 <span className="text-xs font-medium text-neutral-400">
                   {isAnalyzing && !promptOutput
-                    ? 'Analyzing full frame, characters, expressions, emotions, motion, text, sunlight & pixels...'
-                    : 'Prompt'}
+                    ? 'Running 7-Pass Master Analysis (A. Quick Summary → B. Detailed Breakdown → C. Final Master Prompt → D. Negative Prompt → E. Short Version → F. Uncertainty Notes)...'
+                    : 'Analysis & Prompt'}
                 </span>
               </div>
 
               {promptOutput && (
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="px-4 py-2 text-xs font-semibold text-[#0B0F17] bg-[#76B900] hover:bg-[#86D100] rounded-lg transition-colors flex items-center gap-1.5"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy Prompt</span>
-                    </>
+                <div className="flex items-center gap-2">
+                  {masterPromptOnly && (
+                    <button
+                      type="button"
+                      onClick={handleCopyMasterOnly}
+                      className="px-3.5 py-2 text-xs font-semibold text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      {copiedMasterOnly ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-[#76B900]" />
+                          <span>Master Prompt Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-[#76B900]" />
+                          <span>Copy Master Prompt (C)</span>
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyFull}
+                    className="px-4 py-2 text-xs font-semibold text-[#0B0F17] bg-[#76B900] hover:bg-[#86D100] rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    {copiedFull ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Full Output</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
 

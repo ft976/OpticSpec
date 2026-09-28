@@ -1,20 +1,43 @@
-export type NvidiaVisionModelId =
-  | 'meta/llama-3.2-90b-vision-instruct'
-  | 'meta/llama-3.2-11b-vision-instruct'
-  | 'qwen/qwen2.5-vl-72b-instruct'
-  | 'microsoft/phi-3.5-vision-instruct';
+export type OpenRouterGoogleVisionModelId =
+  | 'google/gemma-3-27b-it:free'
+  | 'google/gemini-2.0-flash-exp:free'
+  | 'google/gemma-3-12b-it:free'
+  | 'google/gemma-3-4b-it:free';
 
 export interface ColorSwatch {
   hex: string;
   rgb: string;
+  r?: number;
+  g?: number;
+  b?: number;
   percentage: number;
   role: string;
 }
 
-export interface ZoneTelemetry {
+export interface SpatialZoneTelemetry {
   zoneName: string;
   hex: string;
   brightnessPct: number;
+}
+
+export type ZoneTelemetry = SpatialZoneTelemetry;
+
+export interface LuminanceProfile {
+  meanBrightness: number; // 0 - 255
+  brightnessPct: number; // 0 - 100
+  shadowsPct: number;
+  midtonesPct: number;
+  highlightsPct: number;
+  dynamicContrast: string;
+  exposureProfile: string;
+}
+
+export interface ColorEncodingProfile {
+  colorSpace: string;
+  meanSaturationPct: number;
+  temperatureBias: string;
+  estimatedKelvin: string;
+  nineZoneGrid: SpatialZoneTelemetry[];
 }
 
 export interface PixelTelemetry {
@@ -22,21 +45,7 @@ export interface PixelTelemetry {
   height: number;
   aspectRatio: string;
   megapixels: string;
-  luminance: {
-    meanBrightness: number;
-    brightnessPct: number;
-    shadowsPct: number;
-    midtonesPct: number;
-    highlightsPct: number;
-    dynamicContrast: string;
-    exposureProfile: string;
-  };
-  colorEncoding: {
-    colorSpace: string;
-    meanSaturationPct: number;
-    temperatureBias: string;
-    estimatedKelvin: string;
-    nineZoneGrid: ZoneTelemetry[];
-  };
   swatches: ColorSwatch[];
+  luminance: LuminanceProfile;
+  colorEncoding: ColorEncodingProfile;
 }

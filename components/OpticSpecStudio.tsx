@@ -300,6 +300,13 @@ export default function OpticSpecStudio() {
           </div>
         )}
       </main>
+
+      {/* Footer Attribution */}
+      <footer className="max-w-3xl w-full mx-auto px-5 py-6 text-center">
+        <p className="text-xs sm:text-sm font-medium text-neutral-400 tracking-wide">
+          Developed by Rehan...🌻
+        </p>
+      </footer>
     </div>
   );
 }

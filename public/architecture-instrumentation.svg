@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" fill="none">
+  <rect width="960" height="420" rx="20" fill="#0B0F17"/>
+  <rect x="2" y="2" width="956" height="416" rx="18" stroke="#1E293B" stroke-width="2"/>
+
+  <!-- Header Title -->
+  <text x="40" y="48" fill="#FFFFFF" font-family="sans-serif" font-size="18" font-weight="700">OPTICSPEC — FULL-FRAME PIXEL INSTRUMENTATION &amp; MULTI-MODEL STREAMING PIPELINE</text>
+  <text x="40" y="72" fill="#94A3B8" font-family="monospace" font-size="12">9-Zone Spatial Grid • 10-Cluster Color Quantization • Real-Time Non-Refusal Verified Token Streaming</text>
+
+  <!-- Stage 1: Client Telemetry Engine -->
+  <rect x="40" y="100" width="260" height="270" rx="14" fill="#111723" stroke="#76B900" stroke-width="1.5"/>
+  <text x="60" y="132" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">01. CLIENT PIXEL TELEMETRY</text>
+  <text x="60" y="158" fill="#F8FAFC" font-family="sans-serif" font-size="14" font-weight="600">Canvas 2D Optical Scanner</text>
+  <text x="60" y="184" fill="#CBD5E1" font-family="monospace" font-size="11">• 1024px @ 0.85 JPEG Transport</text>
+  <text x="60" y="206" fill="#CBD5E1" font-family="monospace" font-size="11">• 72x72 Full-Frame Sample Matrix</text>
+  <text x="60" y="228" fill="#CBD5E1" font-family="monospace" font-size="11">• 3x3 (9-Zone) Spatial HEX Map</text>
+  <text x="60" y="250" fill="#CBD5E1" font-family="monospace" font-size="11">• 10-Point RGB/HEX Clustering</text>
+  <text x="60" y="272" fill="#CBD5E1" font-family="monospace" font-size="11">• Rec.601 Luminance &amp; EV Curve</text>
+  <text x="60" y="294" fill="#CBD5E1" font-family="monospace" font-size="11">• R-B Kelvin Sunlight Estimator</text>
+  <text x="60" y="316" fill="#CBD5E1" font-family="monospace" font-size="11">• GCD Aspect Ratio Resolver</text>
+
+  <!-- Arrow 1 -->
+  <path d="M305 235H345" stroke="#76B900" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M338 229L346 235L338 241" stroke="#76B900" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Stage 2: Master Instruction Compiler -->
+  <rect x="350" y="100" width="260" height="270" rx="14" fill="#111723" stroke="#334155" stroke-width="1.5"/>
+  <text x="370" y="132" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">02. INSTRUCTION COMPILER</text>
+  <text x="370" y="158" fill="#F8FAFC" font-family="sans-serif" font-size="14" font-weight="600">7-Pillar Full-Frame Note</text>
+  <text x="370" y="184" fill="#CBD5E1" font-family="monospace" font-size="11">• Exact No. of Persons/Characters</text>
+  <text x="370" y="206" fill="#CBD5E1" font-family="monospace" font-size="11">• Facial Expressions &amp; Emotions</text>
+  <text x="370" y="228" fill="#CBD5E1" font-family="monospace" font-size="11">• Lived Experience &amp; Impression</text>
+  <text x="370" y="250" fill="#CBD5E1" font-family="monospace" font-size="11">• Motion &amp; Un-Motion Variables</text>
+  <text x="370" y="272" fill="#CBD5E1" font-family="monospace" font-size="11">• Verbatim OCR Written Words</text>
+  <text x="370" y="294" fill="#CBD5E1" font-family="monospace" font-size="11">• Side Angle, Scale &amp; Sunlight</text>
+  <text x="370" y="316" fill="#CBD5E1" font-family="monospace" font-size="11">• SHA-1 In-Memory LRU Cache</text>
+
+  <!-- Arrow 2 -->
+  <path d="M615 235H655" stroke="#76B900" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M648 229L656 235L648 241" stroke="#76B900" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Stage 3: Parallel Vision Engine -->
+  <rect x="660" y="100" width="260" height="270" rx="14" fill="#111723" stroke="#76B900" stroke-width="1.5"/>
+  <text x="680" y="132" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">03. PARALLEL VISION ENGINE</text>
+  <text x="680" y="158" fill="#F8FAFC" font-family="sans-serif" font-size="14" font-weight="600">Verified Non-Refusal Stream</text>
+  <text x="680" y="184" fill="#CBD5E1" font-family="monospace" font-size="11">• Qwen 2.5 VL 72B Instruct</text>
+  <text x="680" y="206" fill="#CBD5E1" font-family="monospace" font-size="11">• Llama 3.2 90B Vision Instruct</text>
+  <text x="680" y="228" fill="#CBD5E1" font-family="monospace" font-size="11">• Llama 3.2 11B Vision Instruct</text>
+  <text x="680" y="250" fill="#CBD5E1" font-family="monospace" font-size="11">• Multimodal Flash Failover</text>
+  <text x="680" y="272" fill="#CBD5E1" font-family="monospace" font-size="11">• 85-Char Refusal Guard Filter</text>
+  <text x="680" y="294" fill="#CBD5E1" font-family="monospace" font-size="11">• Live SSE Token Streaming</text>
+  <text x="680" y="316" fill="#76B900" font-family="monospace" font-size="11" font-weight="700">→ 1:1 Recreate Prompt Output</text>
+</svg>

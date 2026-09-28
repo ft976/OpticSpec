@@ -1,0 +1,6 @@
+{
+  "name": "OpticSpec — Deep Image-to-Prompt Reverse Engineering Studio",
+  "description": "Forensic visual deconstruction and multi-engine prompt reconstruction powered by NVIDIA Vision-Language Models.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

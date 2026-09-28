@@ -13,12 +13,82 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-const NVIDIA_NIM_ENDPOINT =
-  'https://integrate.api.nvidia.com/v1/chat/completions';
+const OPENROUTER_MODELS_ENDPOINT = 'https://openrouter.ai/api/v1/models';
 
 // High-speed in-memory LRU cache (instant <2ms response on repeat images)
 const PROMPT_CACHE = new Map<string, {text: string; model: string}>();
 const MAX_CACHE_ENTRIES = 150;
+
+// Cached live list of OpenRouter free vision models
+let cachedFreeVisionModels: string[] | null = null;
+let cachedModelsTimestamp = 0;
+
+const DEFAULT_FREE_VISION_MODELS: string[] = [
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'qwen/qwen3.8-27b:free',
+  'thinkingmachines/inkling:free',
+  'thinkingmachines/inkling-small:free',
+  'dots-studio/dots-3-note-preview:free',
+  'openrouter/free',
+];
+
+async function getLiveOpenRouterFreeVisionModels(): Promise<string[]> {
+  const now = Date.now();
+  if (cachedFreeVisionModels && now - cachedModelsTimestamp < 10 * 60 * 1000) {
+    return cachedFreeVisionModels;
+  }
+
+  try {
+    const res = await fetch(OPENROUTER_MODELS_ENDPOINT, {
+      method: 'GET',
+      headers: {Accept: 'application/json'},
+      signal: AbortSignal.timeout(3500),
+    });
+    if (!res.ok) return DEFAULT_FREE_VISION_MODELS;
+
+    const json = await res.json();
+    const models = Array.isArray(json?.data) ? json.data : [];
+    const discovered: string[] = models
+      .filter(
+        (m: {
+          id?: string;
+          architecture?: {input_modalities?: string[]; modality?: string};
+        }) => {
+          const id = m?.id || '';
+          if (!id.endsWith(':free')) return false;
+          if (id.includes('content-safety') || id.includes('guard')) {
+            return false;
+          }
+          const inputs = m?.architecture?.input_modalities || [];
+          const modality = m?.architecture?.modality || '';
+          return inputs.includes('image') || modality.includes('image');
+        }
+      )
+      .map((m: {id: string}) => m.id);
+
+    if (discovered.length > 0) {
+      // Prioritize Google Gemma 4 models first, then Qwen, then other live free vision models
+      const googleModels = discovered.filter((id) => id.startsWith('google/'));
+      const qwenModels = discovered.filter((id) => id.startsWith('qwen/'));
+      const otherModels = discovered.filter(
+        (id) => !id.startsWith('google/') && !id.startsWith('qwen/')
+      );
+      cachedFreeVisionModels = [
+        ...googleModels,
+        ...qwenModels,
+        ...otherModels,
+        'openrouter/free',
+      ];
+      cachedModelsTimestamp = now;
+      return cachedFreeVisionModels;
+    }
+  } catch {
+    // Use default verified list if models endpoint times out
+  }
+
+  return DEFAULT_FREE_VISION_MODELS;
+}
 
 const REFUSAL_PATTERNS = [
   /i can't help/i,
@@ -44,7 +114,7 @@ function isRefusalText(text: string): boolean {
 }
 
 function setCache(key: string, promptText: string, model: string) {
-  if (isRefusalText(promptText) || promptText.length < 200) return;
+  if (isRefusalText(promptText) || promptText.length < 250) return;
   if (PROMPT_CACHE.size >= MAX_CACHE_ENTRIES) {
     const oldestKey = PROMPT_CACHE.keys().next().value;
     if (oldestKey) PROMPT_CACHE.delete(oldestKey);
@@ -301,145 +371,7 @@ function buildUserMessage(telemetry?: PixelTelemetry): string {
 }
 
 /**
- * Guaranteed deterministic full-frame A-F fallback generator.
- * Ensures that even on a fresh Vercel deployment where API keys have not been added yet
- * or during upstream free-tier rate limits, the endpoint NEVER fails with "All promises were rejected".
- */
-function buildDeterministicMasterAnalysis(telemetry?: PixelTelemetry): string {
-  const width = telemetry?.width ?? 1024;
-  const height = telemetry?.height ?? 768;
-  const ar = telemetry?.aspectRatio ?? '4:3';
-  const orientation =
-    width > height * 1.15
-      ? 'landscape'
-      : height > width * 1.15
-        ? 'portrait'
-        : 'square';
-  const brightness = telemetry?.luminance.brightnessPct ?? 52;
-  const exposure =
-    telemetry?.luminance.exposureProfile ?? 'Balanced neutral exposure';
-  const contrast =
-    telemetry?.luminance.dynamicContrast ?? 'Balanced full-range contrast';
-  const shadows = telemetry?.luminance.shadowsPct ?? 30;
-  const midtones = telemetry?.luminance.midtonesPct ?? 50;
-  const highlights = telemetry?.luminance.highlightsPct ?? 20;
-  const saturation = telemetry?.colorEncoding.meanSaturationPct ?? 48;
-  const tempBias =
-    telemetry?.colorEncoding.temperatureBias ?? 'Neutral balanced daylight';
-  const kelvin = telemetry?.colorEncoding.estimatedKelvin ?? '5400K';
-
-  const swatches = telemetry?.swatches ?? [
-    {
-      hex: '#1E293B',
-      rgb: 'rgb(30, 41, 59)',
-      percentage: 35,
-      role: 'Primary Dominant Field',
-    },
-    {
-      hex: '#64748B',
-      rgb: 'rgb(100, 116, 139)',
-      percentage: 25,
-      role: 'Midtone Surface Anchor',
-    },
-    {
-      hex: '#E2E8F0',
-      rgb: 'rgb(226, 232, 240)',
-      percentage: 20,
-      role: 'Specular Peak Highlight',
-    },
-  ];
-
-  const primaryHex = swatches[0]?.hex ?? '#1E293B';
-  const secondaryHex = swatches[1]?.hex ?? '#64748B';
-  const accentHex = swatches[2]?.hex ?? '#E2E8F0';
-  const swatchList = swatches
-    .map(
-      (s) => `approx. ${s.hex} (${s.rgb}, ~${s.percentage}% frame coverage — ${s.role})`
-    )
-    .join('; ');
-
-  const zones = telemetry?.colorEncoding.nineZoneGrid ?? [];
-  const zoneMapText =
-    zones.length > 0
-      ? zones
-          .map(
-            (z) =>
-              `${z.zoneName}: approx. ${z.hex} (~${z.brightnessPct}% brightness)`
-          )
-          .join(', ')
-      : `Center: approx. ${primaryHex} (~${brightness}% brightness)`;
-
-  const topBright =
-    zones
-      .filter((z) => z.zoneName.startsWith('Top'))
-      .reduce((acc, z) => acc + z.brightnessPct, 0) / 3 || brightness;
-  const bottomBright =
-    zones
-      .filter((z) => z.zoneName.startsWith('Bottom'))
-      .reduce((acc, z) => acc + z.brightnessPct, 0) / 3 || brightness;
-
-  const lightDirection =
-    topBright > bottomBright + 8
-      ? 'overhead / upper-frame directional illumination casting downward shadows'
-      : bottomBright > topBright + 8
-        ? 'low-angle / lower-frame upward illumination'
-        : 'even frontal and ambient cross-frame illumination';
-
-  return `### A. Quick Summary
-High-resolution ${orientation} visual composition (${width}×${height} px, approximate aspect ratio ${ar}) featuring a structured ${contrast.toLowerCase()} tonal layout anchored by ${primaryHex} and ${secondaryHex}. The frame exhibits ${lightDirection} with an overall brightness of approximately ${brightness}% (${exposure}) and a ${tempBias.toLowerCase()} colour atmosphere (~${kelvin}).
-
-### B. Detailed Breakdown
-1. **Frame and Composition**
-   - **Orientation & Aspect Ratio:** ${orientation.charAt(0).toUpperCase() + orientation.slice(1)} format (${width}×${height} px, approx. ${ar}).
-   - **Camera Angle & Shot Impression:** Eye-level to slight three-quarter perspective with balanced framing across foreground, midground, and background planes.
-   - **Spatial 9-Zone Distribution:** ${zoneMapText}.
-   - **Depth & Placement:** Central focal weight anchored in the midground with structured peripheral framing across all four corners and edges.
-
-2. **Characters**
-   - **Subject Presence & Appearance:** Primary focal forms in the central and midground zones are rendered with natural proportions, clear silhouette separation against the ${primaryHex} field, and balanced posture. (Where facial features or background figures are small or partially occluded, details are preserved without inventing identity.)
-
-3. **Objects and Living Things**
-   - **Primary & Secondary Elements:** Foreground and midground structural elements occupy the central zones (${zoneMapText}), anchored by ${secondaryHex} midtones and ${accentHex} highlight accents.
-
-4. **Written Text**
-   - **Text & Symbols Scan:** Any fine lettering or graphic markings in the frame should be preserved in their exact original position and colour contrast (${accentHex} against ${primaryHex}); no extraneous text or watermarks are invented.
-
-5. **Colours**
-   - **Dominant, Secondary & Accent Palette:** ${swatchList}.
-   - **Colour Temperature & Saturation:** Mean chromatic saturation of approximately ${saturation}% with a ${tempBias.toLowerCase()} grading (~${kelvin}).
-   - **Colour Mood & Character:** The combination of approx. ${primaryHex} (structural depth) with approx. ${secondaryHex} (midtone harmony) and approx. ${accentHex} (luminous focal highlights) creates a cohesive, visually grounded atmosphere.
-
-6. **Lighting, Brightness, and Sunlight**
-   - **Light Direction & Quality:** ${lightDirection.charAt(0).toUpperCase() + lightDirection.slice(1)}.
-   - **Luminance & Exposure Breakdown:** Overall mean brightness is approx. ${brightness}% (${exposure}), distributed across ~${shadows}% shadows, ~${midtones}% midtones, and ~${highlights}% highlights (${contrast}).
-
-7. **Environment and Universe**
-   - **Setting & Spatial Depth:** Cohesive ${orientation} environment with distinct separation between the upper zones (~${Math.round(topBright)}% brightness) and lower grounding zones (~${Math.round(bottomBright)}% brightness).
-
-8. **Motion and Stillness**
-   - **Dynamic vs. Static Balance:** Frozen moment with crisp structural stillness in the grounding elements and natural poise in the focal subjects.
-
-9. **Style and Quality**
-   - **Medium & Technical Fidelity:** High-clarity digital visual capture in sRGB colour encoding with clean edge definition, natural surface textures, and ${contrast.toLowerCase()}.
-
-10. **Mood and Emotional Impression**
-   - **Atmosphere:** Composed, visually balanced, and atmospheric, driven by the ${tempBias.toLowerCase()} (~${kelvin}) lighting and ${primaryHex} / ${secondaryHex} / ${accentHex} tonal interplay.
-
-### C. Final Master Prompt
-High-clarity ${orientation} visual composition (approx. aspect ratio ${ar}), eye-level balanced framing, central focal subject and midground structural elements positioned in harmonious spatial relationship across the frame, detailed surface textures and natural proportions, clean foreground and layered background across all nine spatial zones (${zoneMapText}), dominant colour palette of approx. ${primaryHex} (${swatches[0]?.role ?? 'primary field'}), approx. ${secondaryHex} (${swatches[1]?.role ?? 'midtone anchor'}), and approx. ${accentHex} (${swatches[2]?.role ?? 'highlight accent'}) at ~${saturation}% saturation, ${lightDirection} with ${tempBias.toLowerCase()} (~${kelvin}), ~${brightness}% overall brightness (${exposure}, ~${shadows}% shadows, ~${midtones}% midtones, ~${highlights}% highlights, ${contrast.toLowerCase()}), cohesive atmospheric depth and sharp optical fidelity. Preserve the original composition, subject count, spatial relationships, colours, and text placement.
-
-### D. Negative Prompt
-extra or missing people, extra limbs or fingers, distorted faces, altered pose, wrong clothing, wrong object count, reversed left/right placement, misspelled or invented text, watermark, signature, oversaturated neon distortion, severe blur, low quality, cropped focal subject, elements not in the original.
-
-### E. Short Version
-High-clarity ${orientation} scene (approx. ${ar}) with balanced eye-level framing, layered foreground-to-background depth, dominant palette of approx. ${primaryHex}, ${secondaryHex}, and ${accentHex} (~${saturation}% saturation), ${lightDirection}, ${tempBias.toLowerCase()} (~${kelvin}), and ${contrast.toLowerCase()} (~${brightness}% brightness). Preserve original composition, colours, and spatial relationships.
-
-### F. Uncertainty Notes
-- Generated via the built-in deterministic optical telemetry engine because no active server vision API key (\`OPENROUTER_API_KEY\` or \`GEMINI_API_KEY\`) responded on this deployment. Add \`OPENROUTER_API_KEY\` or \`GEMINI_API_KEY\` in your Vercel Project Settings → Environment Variables and redeploy for full neural VLM character/OCR recognition.`;
-}
-
-/**
- * Non-refusal stream verifier.
+ * Verifies the initial stream is non-empty and not a safety refusal.
  */
 async function verifyStreamNotRefused(
   rawStream: ReadableStream<Uint8Array>,
@@ -495,119 +427,140 @@ async function verifyStreamNotRefused(
 }
 
 /**
- * Calls OpenRouter with a generous 28s timeout so free vision models on Vercel
- * never get aborted during cold-start or prompt ingestion.
+ * Calls OpenRouter using the live discovered free vision models (`google/gemma-4-31b-it:free`,
+ * `google/gemma-4-26b-a4b-it:free`, `qwen/qwen3.8-27b:free`, etc.).
+ * Uses sequential model fallback to avoid OpenRouter `:free` concurrent burst 429 errors.
  */
-async function fetchOpenRouterVisionStream(
+async function fetchOpenRouterLiveVisionStream(
   apiKey: string,
-  modelId: string,
-  fallbackModels: string[],
   imageDataUrl: string,
   userMessage: string,
-  parentSignal: AbortSignal,
-  timeoutMs = 28000
-): Promise<ReadableStream<Uint8Array>> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  const onParentAbort = () => controller.abort();
-  parentSignal.addEventListener('abort', onParentAbort, {once: true});
-
+  parentSignal: AbortSignal
+): Promise<{stream: ReadableStream<Uint8Array>; model: string}> {
+  const liveModels = await getLiveOpenRouterFreeVisionModels();
   const combinedInstructionAndPrompt = `${MASTER_INSTRUCTION_FILE_V2}\n\n---\n\n${userMessage}`;
+  const errors: string[] = [];
 
-  try {
-    const response = await fetch(OPENROUTER_ENDPOINT, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey.trim()}`,
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-        'HTTP-Referer':
-          process.env.APP_URL ||
-          (process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : 'https://opticspec.vercel.app'),
-        'X-Title': 'OpticSpec Image to Prompt',
-      },
-      body: JSON.stringify({
-        model: modelId,
-        ...(fallbackModels.length > 0
-          ? {models: [modelId, ...fallbackModels].slice(0, 3), route: 'fallback'}
-          : {}),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {type: 'text', text: combinedInstructionAndPrompt},
-              {type: 'image_url', image_url: {url: imageDataUrl}},
-            ],
-          },
-        ],
-        temperature: 0.15,
-        top_p: 0.9,
-        max_tokens: 4096,
-        stream: true,
-      }),
-    });
+  // Group into batches of up to 3 models for OpenRouter's native `models` fallback array
+  const batches: string[][] = [];
+  for (let i = 0; i < liveModels.length; i += 3) {
+    batches.push(liveModels.slice(i, i + 3));
+  }
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok || !response.body) {
-      const errText = await response.text().catch(() => '');
-      throw new Error(
-        `OpenRouter (${modelId}) HTTP ${response.status}: ${errText.slice(0, 140)}`
-      );
+  for (const batch of batches) {
+    if (parentSignal.aborted) {
+      throw new Error('Aborted');
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const onParentAbort = () => controller.abort();
+    parentSignal.addEventListener('abort', onParentAbort, {once: true});
 
-    const sseStream = new ReadableStream<Uint8Array>({
-      async start(streamController) {
-        let buffer = '';
-        try {
-          while (true) {
-            const {done, value} = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, {stream: true});
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+    try {
+      const primaryModel = batch[0];
+      const response = await fetch(OPENROUTER_ENDPOINT, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${apiKey.trim()}`,
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          'HTTP-Referer':
+            process.env.APP_URL ||
+            (process.env.VERCEL_URL
+              ? `https://${process.env.VERCEL_URL}`
+              : 'https://opticspec.vercel.app'),
+          'X-Title': 'OpticSpec Image to Prompt',
+        },
+        body: JSON.stringify({
+          model: primaryModel,
+          ...(batch.length > 1 ? {models: batch, route: 'fallback'} : {}),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {type: 'text', text: combinedInstructionAndPrompt},
+                {type: 'image_url', image_url: {url: imageDataUrl}},
+              ],
+            },
+          ],
+          temperature: 0.15,
+          top_p: 0.9,
+          max_tokens: 4096,
+          stream: true,
+        }),
+      });
 
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith('data:')) continue;
-              const dataStr = trimmed.slice(5).trim();
-              if (dataStr === '[DONE]') continue;
-              try {
-                const parsed = JSON.parse(dataStr);
-                const delta = parsed?.choices?.[0]?.delta?.content;
-                if (delta) {
-                  streamController.enqueue(encoder.encode(delta));
+      clearTimeout(timeoutId);
+
+      if (!response.ok || !response.body) {
+        const errText = await response.text().catch(() => '');
+        errors.push(
+          `OpenRouter (${batch.join(', ')}) HTTP ${response.status}: ${errText.slice(0, 120)}`
+        );
+        continue;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const encoder = new TextEncoder();
+
+      const sseStream = new ReadableStream<Uint8Array>({
+        async start(streamController) {
+          let buffer = '';
+          try {
+            while (true) {
+              const {done, value} = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, {stream: true});
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data:')) continue;
+                const dataStr = trimmed.slice(5).trim();
+                if (dataStr === '[DONE]') continue;
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  const delta =
+                    parsed?.choices?.[0]?.delta?.content ??
+                    parsed?.choices?.[0]?.message?.content;
+                  if (delta) {
+                    streamController.enqueue(encoder.encode(delta));
+                  }
+                } catch {
+                  // Ignore partial SSE JSON chunks
                 }
-              } catch {
-                // Ignore partial SSE JSON chunks
               }
             }
+            streamController.close();
+          } catch (err) {
+            streamController.error(err);
           }
-          streamController.close();
-        } catch (err) {
-          streamController.error(err);
-        }
-      },
-      cancel() {
-        reader.cancel().catch(() => {});
-        controller.abort();
-      },
-    });
+        },
+        cancel() {
+          reader.cancel().catch(() => {});
+          controller.abort();
+        },
+      });
 
-    return await verifyStreamNotRefused(sseStream, () => controller.abort());
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
-  } finally {
-    parentSignal.removeEventListener('abort', onParentAbort);
+      const verifiedStream = await verifyStreamNotRefused(sseStream, () =>
+        controller.abort()
+      );
+      return {stream: verifiedStream, model: `openrouter:${primaryModel}`};
+    } catch (err) {
+      clearTimeout(timeoutId);
+      errors.push(err instanceof Error ? err.message : String(err));
+    } finally {
+      parentSignal.removeEventListener('abort', onParentAbort);
+    }
   }
+
+  throw new Error(
+    errors.join(' | ') || 'OpenRouter free vision models failed.'
+  );
 }
 
 /**
@@ -702,104 +655,6 @@ async function fetchDirectGoogleVisionStream(
   });
 }
 
-/**
- * Optional NVIDIA NIM support if the user configured an nvapi-... key in Vercel environment variables.
- */
-async function fetchNvidiaFallbackStream(
-  apiKey: string,
-  modelId: string,
-  imageDataUrl: string,
-  userMessage: string,
-  parentSignal: AbortSignal,
-  timeoutMs = 20000
-): Promise<ReadableStream<Uint8Array>> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  const onParentAbort = () => controller.abort();
-  parentSignal.addEventListener('abort', onParentAbort, {once: true});
-
-  try {
-    const response = await fetch(NVIDIA_NIM_ENDPOINT, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey.trim()}`,
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: [
-          {role: 'system', content: MASTER_INSTRUCTION_FILE_V2},
-          {
-            role: 'user',
-            content: [
-              {type: 'text', text: userMessage},
-              {type: 'image_url', image_url: {url: imageDataUrl}},
-            ],
-          },
-        ],
-        temperature: 0.15,
-        top_p: 0.9,
-        max_tokens: 4096,
-        stream: true,
-      }),
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok || !response.body) {
-      throw new Error(`NVIDIA HTTP ${response.status}`);
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
-
-    const sseStream = new ReadableStream<Uint8Array>({
-      async start(streamController) {
-        let buffer = '';
-        try {
-          while (true) {
-            const {done, value} = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, {stream: true});
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith('data:')) continue;
-              const dataStr = trimmed.slice(5).trim();
-              if (dataStr === '[DONE]') continue;
-              try {
-                const parsed = JSON.parse(dataStr);
-                const delta = parsed?.choices?.[0]?.delta?.content;
-                if (delta) streamController.enqueue(encoder.encode(delta));
-              } catch {
-                // ignore partial chunk
-              }
-            }
-          }
-          streamController.close();
-        } catch (err) {
-          streamController.error(err);
-        }
-      },
-      cancel() {
-        reader.cancel().catch(() => {});
-        controller.abort();
-      },
-    });
-
-    return await verifyStreamNotRefused(sseStream, () => controller.abort());
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
-  } finally {
-    parentSignal.removeEventListener('abort', onParentAbort);
-  }
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -818,7 +673,7 @@ export async function POST(req: NextRequest) {
     const cacheKey = crypto
       .createHash('sha1')
       .update(
-        `v12-vercel-resilient:${imageDataUrl.slice(0, 6144)}:${imageDataUrl.length}`
+        `v14-gemma4-live:${imageDataUrl.slice(0, 6144)}:${imageDataUrl.length}`
       )
       .digest('hex');
 
@@ -845,9 +700,6 @@ export async function POST(req: NextRequest) {
     const rawOpenRouterCandidate =
       process.env.OPENROUTER_API_KEY ||
       process.env.NEXT_PUBLIC_OPENROUTER_API_KEY ||
-      (process.env.NVIDIA_API_KEY?.trim().startsWith('sk-or-')
-        ? process.env.NVIDIA_API_KEY
-        : '') ||
       (process.env.GEMINI_API_KEY?.trim().startsWith('sk-or-')
         ? process.env.GEMINI_API_KEY
         : '');
@@ -873,30 +725,17 @@ export async function POST(req: NextRequest) {
         ? rawGeminiCandidate.trim()
         : '';
 
-    const rawNvidiaCandidate =
-      process.env.NVIDIA_API_KEY || process.env.NEXT_PUBLIC_NVIDIA_API_KEY || '';
-    const nvidiaKey =
-      rawNvidiaCandidate &&
-      rawNvidiaCandidate.trim() !== 'MY_NVIDIA_API_KEY' &&
-      !rawNvidiaCandidate.trim().startsWith('sk-or-') &&
-      rawNvidiaCandidate.trim().length > 10
-        ? rawNvidiaCandidate.trim()
-        : '';
+    if (!openRouterKey && !geminiKey) {
+      return NextResponse.json(
+        {
+          error:
+            'Missing API Key on Vercel: Please add OPENROUTER_API_KEY or GEMINI_API_KEY in your Vercel Project Settings → Environment Variables and redeploy.',
+        },
+        {status: 500}
+      );
+    }
 
     const candidateControllers: AbortController[] = [];
-    const createCandidate = (
-      modelLabel: string,
-      runner: (signal: AbortSignal) => Promise<ReadableStream<Uint8Array>>
-    ) => {
-      const ctrl = new AbortController();
-      candidateControllers.push(ctrl);
-      return runner(ctrl.signal).then((stream) => ({
-        stream,
-        ctrl,
-        model: modelLabel,
-      }));
-    };
-
     const racePromises: Array<
       Promise<{
         stream: ReadableStream<Uint8Array>;
@@ -905,137 +744,69 @@ export async function POST(req: NextRequest) {
       }>
     > = [];
 
-    // 1. OpenRouter Google & Free Vision Models (28s timeout for Vercel serverless cold starts)
+    // 1. OpenRouter Live Free Google Vision Models (`google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`, `qwen/qwen3.8-27b:free`)
     if (openRouterKey) {
+      const ctrl = new AbortController();
+      candidateControllers.push(ctrl);
       racePromises.push(
-        createCandidate('openrouter:google/gemma-3-27b-it:free', (signal) =>
-          fetchOpenRouterVisionStream(
-            openRouterKey,
-            'google/gemma-3-27b-it:free',
-            ['google/gemma-3-12b-it:free', 'google/gemma-3-4b-it:free'],
-            imageDataUrl,
-            userMessage,
-            signal,
-            28000
-          )
-        ),
-        createCandidate('openrouter:qwen/qwen2.5-vl-72b-instruct:free', (signal) =>
-          fetchOpenRouterVisionStream(
-            openRouterKey,
-            'qwen/qwen2.5-vl-72b-instruct:free',
-            [
-              'mistralai/mistral-small-3.1-24b-instruct:free',
-              'qwen/qwen2.5-vl-32b-instruct:free',
-            ],
-            imageDataUrl,
-            userMessage,
-            signal,
-            28000
-          )
-        ),
-        createCandidate('openrouter:openrouter/free', (signal) =>
-          fetchOpenRouterVisionStream(
-            openRouterKey,
-            'openrouter/free',
-            [],
-            imageDataUrl,
-            userMessage,
-            signal,
-            28000
-          )
-        )
+        fetchOpenRouterLiveVisionStream(
+          openRouterKey,
+          imageDataUrl,
+          userMessage,
+          ctrl.signal
+        ).then(({stream, model}) => ({stream, ctrl, model}))
       );
     }
 
-    // 2. Direct Google Gemini Vision Models (ONLY added if a valid GEMINI_API_KEY / GOOGLE_API_KEY is present)
+    // 2. Direct Google Gemini Vision Models (if GEMINI_API_KEY / GOOGLE_API_KEY is present)
     if (geminiKey) {
-      racePromises.push(
-        createCandidate('google:gemini-2.5-flash', (signal) =>
+      for (const modelName of [
+        'gemini-2.5-flash',
+        'gemini-3-flash-preview',
+      ] as const) {
+        const ctrl = new AbortController();
+        candidateControllers.push(ctrl);
+        racePromises.push(
           fetchDirectGoogleVisionStream(
             geminiKey,
-            'gemini-2.5-flash',
+            modelName,
             mimeType,
             base64Data,
             userMessage,
-            signal
-          )
-        ),
-        createCandidate('google:gemini-3-flash-preview', (signal) =>
-          fetchDirectGoogleVisionStream(
-            geminiKey,
-            'gemini-3-flash-preview',
-            mimeType,
-            base64Data,
-            userMessage,
-            signal
-          )
-        )
-      );
-    }
-
-    // 3. Optional NVIDIA NIM Vision Models (if NVIDIA_API_KEY is present on Vercel)
-    if (nvidiaKey) {
-      racePromises.push(
-        createCandidate('nvidia:qwen/qwen2.5-vl-72b-instruct', (signal) =>
-          fetchNvidiaFallbackStream(
-            nvidiaKey,
-            'qwen/qwen2.5-vl-72b-instruct',
-            imageDataUrl,
-            userMessage,
-            signal,
-            22000
-          )
-        ),
-        createCandidate('nvidia:meta/llama-3.2-90b-vision-instruct', (signal) =>
-          fetchNvidiaFallbackStream(
-            nvidiaKey,
-            'meta/llama-3.2-90b-vision-instruct',
-            imageDataUrl,
-            userMessage,
-            signal,
-            22000
-          )
-        )
-      );
-    }
-
-    let activeWinner: {
-      stream: ReadableStream<Uint8Array>;
-      ctrl: AbortController;
-      model: string;
-    } | null = null;
-
-    if (racePromises.length > 0) {
-      try {
-        activeWinner = await Promise.any(racePromises);
-        for (const ctrl of candidateControllers) {
-          if (ctrl !== activeWinner.ctrl) {
-            ctrl.abort();
-          }
-        }
-      } catch {
-        for (const ctrl of candidateControllers) {
-          ctrl.abort();
-        }
+            ctrl.signal
+          ).then((stream) => ({stream, ctrl, model: `google:${modelName}`}))
+        );
       }
     }
 
-    // 4. Guaranteed Resilient Fallback: If no API keys were configured in Vercel Settings yet
-    // or all upstream free APIs are rate-limited (429), return our complete A-F optical reconstruction
-    // instead of throwing "All promises were rejected".
-    if (!activeWinner) {
-      const deterministicOutput = buildDeterministicMasterAnalysis(telemetry);
-      return new NextResponse(deterministicOutput, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          'X-Engine-Model': 'deterministic-optical-telemetry',
-        },
-      });
+    let winner: {
+      stream: ReadableStream<Uint8Array>;
+      ctrl: AbortController;
+      model: string;
+    };
+
+    try {
+      winner = await Promise.any(racePromises);
+      for (const ctrl of candidateControllers) {
+        if (ctrl !== winner.ctrl) {
+          ctrl.abort();
+        }
+      }
+    } catch (aggErr) {
+      for (const ctrl of candidateControllers) {
+        ctrl.abort();
+      }
+      const subErrors =
+        aggErr instanceof AggregateError && Array.isArray(aggErr.errors)
+          ? aggErr.errors
+              .map((e) => (e instanceof Error ? e.message : String(e)))
+              .join(' | ')
+          : aggErr instanceof Error
+            ? aggErr.message
+            : 'Vision API request failed.';
+      return NextResponse.json({error: subErrors}, {status: 502});
     }
 
-    const winner = activeWinner;
     const reader = winner.stream.getReader();
     const decoder = new TextDecoder();
     let fullText = '';
@@ -1046,7 +817,7 @@ export async function POST(req: NextRequest) {
           const {done, value} = await reader.read();
           if (done) {
             const cleaned = fullText.trim();
-            if (cleaned.length > 200 && !isRefusalText(cleaned)) {
+            if (cleaned.length > 250 && !isRefusalText(cleaned)) {
               setCache(cacheKey, cleaned, winner.model);
             }
             controller.close();

@@ -1,8 +1,11 @@
 export type OpenRouterGoogleVisionModelId =
-  | 'google/gemma-3-27b-it:free'
-  | 'google/gemini-2.0-flash-exp:free'
-  | 'google/gemma-3-12b-it:free'
-  | 'google/gemma-3-4b-it:free';
+  | 'google/gemma-4-31b-it:free'
+  | 'google/gemma-4-26b-a4b-it:free'
+  | 'qwen/qwen3.8-27b:free'
+  | 'thinkingmachines/inkling:free'
+  | 'thinkingmachines/inkling-small:free'
+  | 'dots-studio/dots-3-note-preview:free'
+  | 'openrouter/free';
 
 export interface ColorSwatch {
   hex: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useState, useRef, useEffect, useMemo, useCallback} from 'react';
+import React, {useState, useRef, useEffect, useCallback} from 'react';
 import {
   Upload,
   Copy,
@@ -12,44 +12,35 @@ import {
 } from 'lucide-react';
 import {extractImageTelemetryAndCompress} from '@/lib/pixel-telemetry';
 
-function extractSectionCMasterPrompt(fullOutput: string): string | null {
-  const match = fullOutput.match(
-    /(?:###?\s*C\.?\s*Final Master Prompt|\*\*C\.?\s*Final Master Prompt\*\*)([\s\S]*?)(?=(?:###?\s*D\.?\s*Negative Prompt|\*\*D\.?\s*Negative Prompt\*\*|$))/i
-  );
-  if (!match || !match[1]) return null;
-  const cleaned = match[1].trim();
-  return cleaned.length > 30 ? cleaned : null;
-}
-
 export default function OpticSpecStudio() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [promptOutput, setPromptOutput] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [isComplete, setIsComplete] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedFull, setCopiedFull] = useState<boolean>(false);
-  const [copiedMasterOnly, setCopiedMasterOnly] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const objectUrlRef = useRef<string | null>(null);
-
-  const masterPromptOnly = useMemo(
-    () => extractSectionCMasterPrompt(promptOutput),
-    [promptOutput]
-  );
+  const fullAccumulatedRef = useRef<string>('');
 
   const analyzeImage = useCallback(
     async (sourceUrl: string, forceFresh = false) => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      fullAccumulatedRef.current = '';
       setErrorMsg(null);
+      setIsComplete(false);
       setIsAnalyzing(true);
       setPromptOutput('');
+      setCopiedFull(false);
 
       try {
         const {compressedDataUrl, telemetry} =
@@ -57,7 +48,10 @@ export default function OpticSpecStudio() {
 
         const response = await fetch('/api/analyze', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/plain, text/event-stream',
+          },
           signal: controller.signal,
           body: JSON.stringify({
             imageDataUrl: compressedDataUrl,
@@ -73,20 +67,57 @@ export default function OpticSpecStudio() {
 
         if (!response.body) {
           const text = await response.text();
-          setPromptOutput(text.trim());
+          fullAccumulatedRef.current = text;
+          setPromptOutput(text);
+          if (text.trim().length > 0) {
+            setIsComplete(true);
+          }
           return;
         }
 
         const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        const decoder = new TextDecoder('utf-8');
         let accumulated = '';
 
         while (true) {
           const {done, value} = await reader.read();
-          if (done) break;
-          if (value) {
-            accumulated += decoder.decode(value, {stream: true});
+
+          if (done) {
+            // Flush any remaining multi-byte UTF-8 sequence so zero text is truncated
+            const finalFlush = decoder.decode();
+            if (finalFlush) {
+              accumulated += finalFlush;
+            }
+            fullAccumulatedRef.current = accumulated;
             setPromptOutput(accumulated);
+            if (accumulated.trim().length > 0) {
+              setIsComplete(true);
+            }
+            break;
+          }
+
+          if (value && value.byteLength > 0) {
+            const chunkText = decoder.decode(value, {stream: true});
+            if (chunkText) {
+              // If a large buffered chunk arrives at once, progressively render slices across animation frames
+              // so the user always sees real-time streaming on screen without losing a single character
+              if (chunkText.length > 220) {
+                const step = 64;
+                for (let i = 0; i < chunkText.length; i += step) {
+                  if (controller.signal.aborted) break;
+                  accumulated += chunkText.slice(i, i + step);
+                  fullAccumulatedRef.current = accumulated;
+                  setPromptOutput(accumulated);
+                  await new Promise((resolve) =>
+                    requestAnimationFrame(() => resolve(undefined))
+                  );
+                }
+              } else {
+                accumulated += chunkText;
+                fullAccumulatedRef.current = accumulated;
+                setPromptOutput(accumulated);
+              }
+            }
           }
         }
       } catch (err) {
@@ -143,18 +174,12 @@ export default function OpticSpecStudio() {
     return () => window.removeEventListener('paste', onPaste);
   }, [handleFile]);
 
-  const handleCopyFull = () => {
-    if (!promptOutput) return;
-    navigator.clipboard.writeText(promptOutput);
+  const handleCopyAllOutput = () => {
+    const fullText = fullAccumulatedRef.current || promptOutput;
+    if (!fullText) return;
+    navigator.clipboard.writeText(fullText);
     setCopiedFull(true);
     setTimeout(() => setCopiedFull(false), 2000);
-  };
-
-  const handleCopyMasterOnly = () => {
-    if (!masterPromptOnly) return;
-    navigator.clipboard.writeText(masterPromptOnly);
-    setCopiedMasterOnly(true);
-    setTimeout(() => setCopiedMasterOnly(false), 2000);
   };
 
   const handleReset = () => {
@@ -166,14 +191,20 @@ export default function OpticSpecStudio() {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
     }
+    fullAccumulatedRef.current = '';
     setIsAnalyzing(false);
+    setIsComplete(false);
     setImagePreview(null);
     setPromptOutput('');
     setErrorMsg(null);
+    setCopiedFull(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  const showCopyAllButton =
+    !isAnalyzing && isComplete && promptOutput.trim().length > 0;
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-[#F3F4F6] flex flex-col">
@@ -304,68 +335,74 @@ export default function OpticSpecStudio() {
           </div>
         )}
 
-        {/* 2. DIRECT UNBOXED PROMPT & ANALYSIS OUTPUT */}
+        {/* 2. REAL-TIME STREAMING PROMPT OUTPUT */}
         {(isAnalyzing || promptOutput) && (
           <div className="space-y-4 pt-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 {isAnalyzing && (
-                  <RefreshCw className="w-4 h-4 text-[#76B900] animate-spin" />
+                  <RefreshCw className="w-4 h-4 text-[#76B900] animate-spin shrink-0" />
                 )}
                 <span className="text-xs font-medium text-neutral-400">
-                  {isAnalyzing && !promptOutput
-                    ? 'Running 7-Pass Master Analysis (A. Quick Summary → B. Detailed Breakdown → C. Final Master Prompt → D. Negative Prompt → E. Short Version → F. Uncertainty Notes)...'
-                    : 'Analysis & Prompt'}
+                  {isAnalyzing
+                    ? 'Generating prompt in real time...'
+                    : 'Complete Output Generated'}
                 </span>
               </div>
 
-              {promptOutput && (
-                <div className="flex items-center gap-2">
-                  {masterPromptOnly && (
-                    <button
-                      type="button"
-                      onClick={handleCopyMasterOnly}
-                      className="px-3.5 py-2 text-xs font-semibold text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      {copiedMasterOnly ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-[#76B900]" />
-                          <span>Master Prompt Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5 text-[#76B900]" />
-                          <span>Copy Master Prompt (C)</span>
-                        </>
-                      )}
-                    </button>
+              {/* Show Copy All Output option ONLY when the complete output is generated */}
+              {showCopyAllButton && (
+                <button
+                  type="button"
+                  onClick={handleCopyAllOutput}
+                  className="px-4 py-2 text-xs font-semibold text-[#0B0F17] bg-[#76B900] hover:bg-[#86D100] rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                >
+                  {copiedFull ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Copied All Output!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy All Output</span>
+                    </>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={handleCopyFull}
-                    className="px-4 py-2 text-xs font-semibold text-[#0B0F17] bg-[#76B900] hover:bg-[#86D100] rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                  >
-                    {copiedFull ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Full Output</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                </button>
               )}
             </div>
 
-            {promptOutput && (
-              <p className="text-sm sm:text-base text-neutral-100 leading-relaxed select-all whitespace-pre-wrap">
-                {promptOutput}
-              </p>
+            <div className="text-sm sm:text-base text-neutral-100 leading-relaxed select-all whitespace-pre-wrap break-words w-full">
+              {promptOutput}
+              {isAnalyzing && (
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-2 h-4 ml-1 align-middle bg-[#76B900] animate-pulse"
+                />
+              )}
+            </div>
+
+            {/* Bottom Copy All Output button shown once complete output is generated */}
+            {showCopyAllButton && (
+              <div className="pt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleCopyAllOutput}
+                  className="px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#0B0F17] bg-[#76B900] hover:bg-[#86D100] rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer"
+                >
+                  {copiedFull ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Copied All Output!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copy All Output</span>
+                    </>
+                  )}
+                </button>
+              </div>
             )}
           </div>
         )}

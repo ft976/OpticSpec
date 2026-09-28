@@ -2,8 +2,8 @@
   <rect width="1200" height="560" rx="18" fill="#0B0F17"/>
   <rect x="8" y="8" width="1184" height="544" rx="14" stroke="#1E293B" stroke-width="2"/>
 
-  <text x="600" y="46" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="20" font-weight="bold">t = 0ms Parallel Multi-Lane Vision Race &amp; Zero-Delay Re-Analysis (/api/analyze)</text>
-  <text x="600" y="72" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="13">3 Parallel OpenRouter Vision Lanes • 4 Direct Gemini Flash Streams • 16-Char / "### A" Fast-Flush Gate</text>
+  <text x="600" y="46" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="20" font-weight="bold">t = 0ms Parallel Multi-Lane Vision Race &amp; Unbounded Token Streaming (/api/analyze)</text>
+  <text x="600" y="72" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="13">3 Parallel OpenRouter Vision Lanes • 4 Direct Gemini Flash Streams • No Input/Output Token Limit • No Page Text Limit</text>
 
   <!-- Input Node -->
   <rect x="36" y="175" width="235" height="210" rx="12" fill="#111723" stroke="#38BDF8" stroke-width="2"/>
@@ -27,7 +27,7 @@
   <text x="358" y="144" fill="#CBD5E1" font-family="monospace" font-size="11">• Lane A: google/gemma-4-26b-a4b-it:free → dots-3-note</text>
   <text x="358" y="164" fill="#CBD5E1" font-family="monospace" font-size="11">• Lane B: google/gemma-4-31b-it:free → qwen/qwen3.8-27b:free</text>
   <text x="358" y="184" fill="#CBD5E1" font-family="monospace" font-size="11">• Lane C: dots-3-note-preview:free → nemotron-3-nano-omni:free</text>
-  <text x="358" y="204" fill="#94A3B8" font-family="monospace" font-size="10.5">  reasoning: { effort: "low", exclude: true } • Async Model Sync</text>
+  <text x="358" y="204" fill="#94A3B8" font-family="monospace" font-size="10.5">  reasoning: { effort: "low", exclude: true } • Unbounded Output</text>
 
   <!-- Engine Pool 2: Direct Google Gemini Vision -->
   <rect x="340" y="234" width="440" height="106" rx="12" fill="#111723" stroke="#10B981" stroke-width="1.5"/>
@@ -52,12 +52,12 @@
   <text x="1008" y="196" text-anchor="middle" fill="#10B981" font-family="sans-serif" font-size="14.5" font-weight="bold">Fast-Flush Non-Refusal Gate</text>
   <text x="870" y="224" fill="#E2E8F0" font-family="sans-serif" font-size="12">1. Instant flush on "### A" header</text>
   <text x="870" y="244" fill="#E2E8F0" font-family="sans-serif" font-size="12">   or first 16 verified characters</text>
-  <text x="870" y="268" fill="#E2E8F0" font-family="sans-serif" font-size="12">2. Rejects any safety refusal or</text>
-  <text x="870" y="288" fill="#E2E8F0" font-family="sans-serif" font-size="12">   stalled reasoning stream</text>
-  <text x="870" y="312" fill="#E2E8F0" font-family="sans-serif" font-size="12">3. First valid stream wins race &amp;</text>
-  <text x="870" y="330" fill="#E2E8F0" font-family="sans-serif" font-size="12">   aborts all slower connections</text>
+  <text x="870" y="268" fill="#E2E8F0" font-family="sans-serif" font-size="12">2. Zero artificial token caps — full</text>
+  <text x="870" y="288" fill="#E2E8F0" font-family="sans-serif" font-size="12">   unbounded model output streamed</text>
+  <text x="870" y="312" fill="#E2E8F0" font-family="sans-serif" font-size="12">3. Unlimited page text display &amp;</text>
+  <text x="870" y="330" fill="#E2E8F0" font-family="sans-serif" font-size="12">   one-click full clipboard copy</text>
   <text x="870" y="356" fill="#38BDF8" font-family="monospace" font-size="11.5">→ Live Stream Sections A–F to UI</text>
   <text x="870" y="374" fill="#94A3B8" font-family="monospace" font-size="11">→ Cache full output in PROMPT_CACHE</text>
 
-  <text x="600" y="512" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="12.5">Strict System Prompt: Image-to-Prompt Generation: Final Master Instruction File (v2) • max_tokens: 4096</text>
+  <text x="600" y="512" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="12.5">Strict System Prompt: Image-to-Prompt Generation: Final Master Instruction File (v2) • Unbounded Input &amp; Output Tokens</text>
 </svg>

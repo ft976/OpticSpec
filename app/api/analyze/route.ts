@@ -17,17 +17,17 @@ const OPENROUTER_MODELS_ENDPOINT = 'https://openrouter.ai/api/v1/models';
 const NVIDIA_NIM_ENDPOINT =
   'https://integrate.api.nvidia.com/v1/chat/completions';
 
-// High-speed in-memory LRU cache (instant <2ms response on repeat image uploads)
+// High-speed in-memory LRU cache (stores only verified complete A–F outputs)
 const PROMPT_CACHE = new Map<string, {text: string; model: string}>();
 const MAX_CACHE_ENTRIES = 150;
 
-// Verified high-speed free vision models on OpenRouter ordered by fastest TTFT & multimodal accuracy
+// Verified full-context free vision models on OpenRouter ordered by speed & full-output reliability
 const DEFAULT_FREE_VISION_MODELS: string[] = [
-  'google/gemma-4-26b-a4b-it:free',
   'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
   'qwen/qwen3.8-27b:free',
-  'dots-studio/dots-3-note-preview:free',
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+  'dots-studio/dots-3-note-preview:free',
 ];
 
 let cachedFreeVisionModels: string[] = [...DEFAULT_FREE_VISION_MODELS];
@@ -112,8 +112,22 @@ function isRefusalText(text: string): boolean {
   return REFUSAL_PATTERNS.some((pattern) => pattern.test(sample));
 }
 
+/**
+ * Checks whether the streamed output has reached and populated the final Section F (Uncertainty Notes)
+ * so truncated outputs are never cached or left incomplete.
+ */
+function isOutputComplete(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 400) return false;
+  const sectionFMatch = trimmed.match(
+    /(?:###?\s*F\.?\s*Uncertainty Notes|\*\*F\.?\s*Uncertainty Notes\*\*|F\)\s*Uncertainty Notes)([\s\S]*)$/i
+  );
+  if (!sectionFMatch) return false;
+  return sectionFMatch[1].trim().length >= 15;
+}
+
 function setCache(key: string, promptText: string, model: string) {
-  if (isRefusalText(promptText) || promptText.length < 250) return;
+  if (isRefusalText(promptText) || !isOutputComplete(promptText)) return;
   if (PROMPT_CACHE.size >= MAX_CACHE_ENTRIES) {
     const oldestKey = PROMPT_CACHE.keys().next().value;
     if (oldestKey) PROMPT_CACHE.delete(oldestKey);
@@ -354,7 +368,7 @@ A short list of anything unclear (unreadable text, hidden faces, cropped objects
 
 const QUICK_USE_USER_PROMPT = `Analyse the attached image completely, covering the entire frame including all corners and edges. Follow the Image-to-Prompt Master Instructions. Count every person and describe each one's apparent gender presentation, age group, body, clothing, pose, movement, facial expression, emotion, body language, and the impression they give. Identify all objects, animals, plants, and environment details. Read every written word and place it exactly where it appears. Describe all colours with exact names, approximate hex codes, colour mood, brightness, sunlight, shadows, and lighting direction. Describe all motion and stillness, sizes, positions, design, and overall atmosphere. Do not identify real people from faces, and do not invent anything that is not visible; mark unclear details as unclear. Deliver: A) Quick Summary, B) Detailed Breakdown, C) Final Master Prompt, D) Negative Prompt, E) Short Version, F) Uncertainty Notes.
 
-Begin your response immediately with "### A. Quick Summary" and deliver all sections A, B (1 to 10), C, D, E, and F in exact order.`;
+Begin your response immediately with "### A. Quick Summary" and deliver all sections A, B (1 to 10), C, D, E, and F completely in exact order without truncating any section.`;
 
 function buildUserMessage(telemetry?: PixelTelemetry): string {
   if (!telemetry) {
@@ -367,7 +381,10 @@ function buildUserMessage(telemetry?: PixelTelemetry): string {
     .join(', ');
 
   const spatialZones = telemetry.colorEncoding.nineZoneGrid
-    .map((z) => `${z.zoneName}: approx. ${z.hex} (~${z.brightnessPct}% brightness)`)
+    .map(
+      (z) =>
+        `${z.zoneName}: approx. ${z.hex} (~${z.brightnessPct}% brightness)`
+    )
     .join('; ');
 
   return `${QUICK_USE_USER_PROMPT}
@@ -381,8 +398,9 @@ function buildUserMessage(telemetry?: PixelTelemetry): string {
 }
 
 /**
- * Low-latency verification gate: confirms the stream starts emitting non-refusal markdown
- * within the first 16 characters and flushes immediately to minimize Time-To-First-Token.
+ * Zero-delay first-token verification gate:
+ * Flushes immediately on Token #1 when the stream begins with '#', '*', or 'A'
+ * so the client renders tokens in real time with zero buffering delay.
  */
 async function verifyStreamNotRefused(
   rawStream: ReadableStream<Uint8Array>,
@@ -393,19 +411,18 @@ async function verifyStreamNotRefused(
   const bufferedChunks: Uint8Array[] = [];
   let initialText = '';
 
-  while (initialText.trim().length < 16) {
+  while (initialText.trim().length < 18) {
     const {done, value} = await reader.read();
     if (done) break;
     if (value) {
       bufferedChunks.push(value);
       initialText += decoder.decode(value, {stream: true});
       const trimmed = initialText.trim();
-      // Fast-path: if the model already began emitting Section A header, immediately flush!
       if (
-        trimmed.startsWith('### A') ||
-        trimmed.startsWith('## A') ||
-        trimmed.startsWith('**A.') ||
-        trimmed.startsWith('A. Quick')
+        trimmed.startsWith('#') ||
+        trimmed.startsWith('*') ||
+        trimmed.startsWith('A.') ||
+        trimmed.startsWith('A)')
       ) {
         break;
       }
@@ -421,7 +438,7 @@ async function verifyStreamNotRefused(
   }
 
   return new ReadableStream<Uint8Array>({
-    async start(controller) {
+    start(controller) {
       for (const chunk of bufferedChunks) {
         controller.enqueue(chunk);
       }
@@ -448,8 +465,8 @@ async function verifyStreamNotRefused(
 }
 
 /**
- * Single OpenRouter Vision Lane with automatic fallback across assigned candidate models.
- * Multiple lanes are raced in parallel at t = 0ms so a single queued model never slows down analysis.
+ * Single OpenRouter Vision Lane using pull()-based incremental SSE chunk streaming
+ * so every token is flushed to the client the instant it arrives over the socket.
  */
 async function fetchOpenRouterVisionLane(
   apiKey: string,
@@ -467,7 +484,7 @@ async function fetchOpenRouterVisionLane(
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 18000);
+    const connectTimeoutId = setTimeout(() => controller.abort(), 18000);
     const onParentAbort = () => controller.abort();
     parentSignal.addEventListener('abort', onParentAbort, {once: true});
 
@@ -500,14 +517,14 @@ async function fetchOpenRouterVisionLane(
           ],
           temperature: 0.15,
           top_p: 0.9,
-          max_tokens: 4096,
           stream: true,
         }),
       });
 
-      clearTimeout(timeoutId);
+      clearTimeout(connectTimeoutId);
 
       if (!response.ok || !response.body) {
+        parentSignal.removeEventListener('abort', onParentAbort);
         const errText = await response.text().catch(() => '');
         errors.push(
           `OpenRouter (${modelId}) HTTP ${response.status}: ${errText.slice(0, 80)}`
@@ -518,74 +535,98 @@ async function fetchOpenRouterVisionLane(
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       const encoder = new TextEncoder();
+      let buffer = '';
+
+      const processLine = (
+        line: string,
+        streamController: ReadableStreamDefaultController<Uint8Array>
+      ): boolean => {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) return false;
+        const dataStr = trimmed.slice(5).trim();
+        if (dataStr === '[DONE]') return false;
+        try {
+          const parsed = JSON.parse(dataStr);
+          const delta =
+            parsed?.choices?.[0]?.delta?.content ??
+            parsed?.choices?.[0]?.message?.content;
+          if (delta) {
+            streamController.enqueue(encoder.encode(delta));
+            return true;
+          }
+        } catch {
+          // Ignore partial SSE JSON chunks
+        }
+        return false;
+      };
 
       const sseStream = new ReadableStream<Uint8Array>({
-        async start(streamController) {
-          let buffer = '';
+        async pull(streamController) {
           try {
             while (true) {
               const {done, value} = await reader.read();
-              if (done) break;
+              if (done) {
+                buffer += decoder.decode();
+                if (buffer.trim()) {
+                  for (const remainingLine of buffer.split('\n')) {
+                    processLine(remainingLine, streamController);
+                  }
+                  buffer = '';
+                }
+                parentSignal.removeEventListener('abort', onParentAbort);
+                streamController.close();
+                return;
+              }
               buffer += decoder.decode(value, {stream: true});
               const lines = buffer.split('\n');
               buffer = lines.pop() || '';
 
+              let emittedInBatch = false;
               for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed.startsWith('data:')) continue;
-                const dataStr = trimmed.slice(5).trim();
-                if (dataStr === '[DONE]') continue;
-                try {
-                  const parsed = JSON.parse(dataStr);
-                  const delta =
-                    parsed?.choices?.[0]?.delta?.content ??
-                    parsed?.choices?.[0]?.message?.content;
-                  if (delta) {
-                    streamController.enqueue(encoder.encode(delta));
-                  }
-                } catch {
-                  // Ignore partial SSE JSON chunks
+                if (processLine(line, streamController)) {
+                  emittedInBatch = true;
                 }
               }
+              if (emittedInBatch) {
+                return;
+              }
             }
-            streamController.close();
           } catch (err) {
+            parentSignal.removeEventListener('abort', onParentAbort);
             streamController.error(err);
           }
         },
         cancel() {
+          parentSignal.removeEventListener('abort', onParentAbort);
           reader.cancel().catch(() => {});
           controller.abort();
         },
       });
 
-      const verifiedStream = await verifyStreamNotRefused(sseStream, () =>
-        controller.abort()
-      );
+      const verifiedStream = await verifyStreamNotRefused(sseStream, () => {
+        parentSignal.removeEventListener('abort', onParentAbort);
+        controller.abort();
+      });
       return {stream: verifiedStream, model: `openrouter:${modelId}`};
     } catch (err) {
-      clearTimeout(timeoutId);
-      errors.push(err instanceof Error ? err.message : String(err));
-    } finally {
+      clearTimeout(connectTimeoutId);
       parentSignal.removeEventListener('abort', onParentAbort);
+      errors.push(err instanceof Error ? err.message : String(err));
     }
   }
 
-  throw new Error(
-    errors.join(' | ') || 'OpenRouter vision lane failed.'
-  );
+  throw new Error(errors.join(' | ') || 'OpenRouter vision lane failed.');
 }
 
 /**
- * Direct Google Multimodal Vision stream (`gemini-3.8-flash`, `gemini-3.1-flash-lite`, `gemini-2.5-flash`, `gemini-3-flash-preview`).
+ * Direct Google Multimodal Vision stream using pull()-based real-time iterator flushing.
  */
 async function fetchDirectGoogleVisionStream(
   apiKey: string,
   modelName:
-    | 'gemini-3.8-flash'
-    | 'gemini-3.1-flash-lite'
     | 'gemini-2.5-flash'
-    | 'gemini-3-flash-preview',
+    | 'gemini-3-flash-preview'
+    | 'gemini-3.1-flash-lite-preview',
   mimeType: string,
   base64Data: string,
   userMessage: string,
@@ -611,9 +652,9 @@ async function fetchDirectGoogleVisionStream(
     config: {
       systemInstruction: MASTER_INSTRUCTION_FILE_V2,
       temperature: 0.15,
-      maxOutputTokens: 4096,
       thinkingConfig:
-        modelName === 'gemini-3-flash-preview'
+        modelName === 'gemini-3-flash-preview' ||
+        modelName === 'gemini-3.1-flash-lite-preview'
           ? {thinkingLevel: ThinkingLevel.MINIMAL}
           : {thinkingBudget: 0},
       safetySettings: [
@@ -637,6 +678,7 @@ async function fetchDirectGoogleVisionStream(
     },
   });
 
+  const iterator = responseStream[Symbol.asyncIterator]();
   const encoder = new TextEncoder();
   let aborted = false;
   const onAbort = () => {
@@ -645,20 +687,25 @@ async function fetchDirectGoogleVisionStream(
   parentSignal.addEventListener('abort', onAbort, {once: true});
 
   const rawStream = new ReadableStream<Uint8Array>({
-    async start(controller) {
+    async pull(controller) {
       try {
-        for await (const chunk of responseStream) {
-          if (aborted) break;
-          const text = chunk.text;
+        while (!aborted) {
+          const {done, value: chunk} = await iterator.next();
+          if (done || aborted) {
+            parentSignal.removeEventListener('abort', onAbort);
+            controller.close();
+            return;
+          }
+          const text = chunk?.text;
           if (text) {
             controller.enqueue(encoder.encode(text));
+            return;
           }
         }
         controller.close();
       } catch (err) {
-        if (!aborted) controller.error(err);
-      } finally {
         parentSignal.removeEventListener('abort', onAbort);
+        if (!aborted) controller.error(err);
       }
     },
     cancel() {
@@ -669,11 +716,12 @@ async function fetchDirectGoogleVisionStream(
 
   return await verifyStreamNotRefused(rawStream, () => {
     aborted = true;
+    parentSignal.removeEventListener('abort', onAbort);
   });
 }
 
 /**
- * Optional NVIDIA NIM Vision support if NVIDIA_API_KEY is present in environment variables.
+ * Optional NVIDIA NIM Vision support with pull()-based real-time SSE flushing.
  */
 async function fetchNvidiaVisionStream(
   apiKey: string,
@@ -710,7 +758,6 @@ async function fetchNvidiaVisionStream(
         ],
         temperature: 0.15,
         top_p: 0.9,
-        max_tokens: 4096,
         stream: true,
       }),
     });
@@ -718,55 +765,244 @@ async function fetchNvidiaVisionStream(
     clearTimeout(timeoutId);
 
     if (!response.ok || !response.body) {
+      parentSignal.removeEventListener('abort', onParentAbort);
       throw new Error(`NVIDIA (${modelId}) HTTP ${response.status}`);
     }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
+    let buffer = '';
+
+    const processNvidiaLine = (
+      line: string,
+      streamController: ReadableStreamDefaultController<Uint8Array>
+    ): boolean => {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) return false;
+      const dataStr = trimmed.slice(5).trim();
+      if (dataStr === '[DONE]') return false;
+      try {
+        const parsed = JSON.parse(dataStr);
+        const delta = parsed?.choices?.[0]?.delta?.content;
+        if (delta) {
+          streamController.enqueue(encoder.encode(delta));
+          return true;
+        }
+      } catch {
+        // ignore partial chunk
+      }
+      return false;
+    };
 
     const sseStream = new ReadableStream<Uint8Array>({
-      async start(streamController) {
-        let buffer = '';
+      async pull(streamController) {
         try {
           while (true) {
             const {done, value} = await reader.read();
-            if (done) break;
+            if (done) {
+              buffer += decoder.decode();
+              if (buffer.trim()) {
+                for (const remainingLine of buffer.split('\n')) {
+                  processNvidiaLine(remainingLine, streamController);
+                }
+                buffer = '';
+              }
+              parentSignal.removeEventListener('abort', onParentAbort);
+              streamController.close();
+              return;
+            }
             buffer += decoder.decode(value, {stream: true});
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
+            let emitted = false;
             for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith('data:')) continue;
-              const dataStr = trimmed.slice(5).trim();
-              if (dataStr === '[DONE]') continue;
-              try {
-                const parsed = JSON.parse(dataStr);
-                const delta = parsed?.choices?.[0]?.delta?.content;
-                if (delta) streamController.enqueue(encoder.encode(delta));
-              } catch {
-                // ignore partial chunk
+              if (processNvidiaLine(line, streamController)) {
+                emitted = true;
               }
             }
+            if (emitted) return;
           }
-          streamController.close();
         } catch (err) {
+          parentSignal.removeEventListener('abort', onParentAbort);
           streamController.error(err);
         }
       },
       cancel() {
+        parentSignal.removeEventListener('abort', onParentAbort);
         reader.cancel().catch(() => {});
         controller.abort();
       },
     });
 
-    return await verifyStreamNotRefused(sseStream, () => controller.abort());
+    return await verifyStreamNotRefused(sseStream, () => {
+      parentSignal.removeEventListener('abort', onParentAbort);
+      controller.abort();
+    });
   } catch (err) {
     clearTimeout(timeoutId);
-    throw err;
-  } finally {
     parentSignal.removeEventListener('abort', onParentAbort);
+    throw err;
   }
+}
+
+/**
+ * Automatic Seamless Continuation:
+ * If any upstream model stream stops early before completing Section F (Uncertainty Notes),
+ * this function seamlessly streams the remaining sections from the exact cutoff point
+ * so the user NEVER sees truncated text.
+ */
+async function streamContinuationIfNeeded(params: {
+  partialText: string;
+  openRouterKey: string;
+  geminiKey: string;
+  mimeType: string;
+  base64Data: string;
+  imageDataUrl: string;
+  telemetry?: PixelTelemetry;
+  controller: ReadableStreamDefaultController<Uint8Array>;
+}): Promise<string> {
+  const {
+    partialText,
+    openRouterKey,
+    geminiKey,
+    mimeType,
+    base64Data,
+    imageDataUrl,
+    telemetry,
+    controller,
+  } = params;
+
+  const tailContext = partialText.slice(-900);
+  const continuationPrompt = `${buildUserMessage(telemetry)}
+
+---
+IMPORTANT CONTINUATION INSTRUCTION:
+The previous stream was cut off early. Below is the exact tail of what has already been output to the user:
+"""
+${tailContext}
+"""
+Continue writing from the EXACT character where the text above ended. DO NOT repeat what was already written, and DO NOT add any meta-commentary. Complete all remaining sections in order through "### D. Negative Prompt", "### E. Short Version", and "### F. Uncertainty Notes".`;
+
+  const encoder = new TextEncoder();
+  let appendedText = '';
+
+  // 1. Try Gemini continuation first if available
+  if (geminiKey) {
+    for (const modelName of [
+      'gemini-2.5-flash',
+      'gemini-3-flash-preview',
+    ] as const) {
+      try {
+        const ai = new GoogleGenAI({
+          apiKey: geminiKey,
+          httpOptions: {headers: {'User-Agent': 'aistudio-build'}},
+        });
+        const responseStream = await ai.models.generateContentStream({
+          model: modelName,
+          contents: {
+            parts: [
+              {inlineData: {mimeType, data: base64Data}},
+              {text: continuationPrompt},
+            ],
+          },
+          config: {
+            systemInstruction: MASTER_INSTRUCTION_FILE_V2,
+            temperature: 0.15,
+            thinkingConfig:
+              modelName === 'gemini-3-flash-preview'
+                ? {thinkingLevel: ThinkingLevel.MINIMAL}
+                : {thinkingBudget: 0},
+          },
+        });
+        for await (const chunk of responseStream) {
+          const text = chunk?.text;
+          if (text) {
+            appendedText += text;
+            controller.enqueue(encoder.encode(text));
+          }
+        }
+        if (appendedText.trim().length > 0) {
+          return appendedText;
+        }
+      } catch {
+        // Fallback to OpenRouter continuation
+      }
+    }
+  }
+
+  // 2. Fallback to OpenRouter continuation
+  if (openRouterKey) {
+    for (const modelId of [
+      'google/gemma-4-31b-it:free',
+      'google/gemma-4-26b-a4b-it:free',
+      'qwen/qwen3.8-27b:free',
+    ]) {
+      try {
+        const res = await fetch(OPENROUTER_ENDPOINT, {
+          method: 'POST',
+          signal: AbortSignal.timeout(18000),
+          headers: {
+            Authorization: `Bearer ${openRouterKey.trim()}`,
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: `${MASTER_INSTRUCTION_FILE_V2}\n\n---\n\n${continuationPrompt}`,
+                  },
+                  {type: 'image_url', image_url: {url: imageDataUrl}},
+                ],
+              },
+            ],
+            temperature: 0.15,
+            stream: true,
+          }),
+        });
+        if (!res.ok || !res.body) continue;
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, {stream: true});
+          const lines = buf.split('\n');
+          buf = lines.pop() || '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const dataStr = trimmed.slice(5).trim();
+            if (dataStr === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(dataStr);
+              const delta = parsed?.choices?.[0]?.delta?.content;
+              if (delta) {
+                appendedText += delta;
+                controller.enqueue(encoder.encode(delta));
+              }
+            } catch {
+              // ignore partial JSON
+            }
+          }
+        }
+        if (appendedText.trim().length > 0) {
+          return appendedText;
+        }
+      } catch {
+        // try next model
+      }
+    }
+  }
+
+  return appendedText;
 }
 
 export async function POST(req: NextRequest) {
@@ -788,17 +1024,39 @@ export async function POST(req: NextRequest) {
     const cacheKey = crypto
       .createHash('sha1')
       .update(
-        `v16-master-v2:${imageDataUrl.slice(0, 6144)}:${imageDataUrl.length}`
+        `v18-complete-stream:${imageDataUrl.slice(0, 6144)}:${imageDataUrl.length}`
       )
       .digest('hex');
 
     if (!forceFresh) {
       const cached = PROMPT_CACHE.get(cacheKey);
-      if (cached && !isRefusalText(cached.text)) {
-        return new NextResponse(cached.text, {
+      if (
+        cached &&
+        !isRefusalText(cached.text) &&
+        isOutputComplete(cached.text)
+      ) {
+        const encoder = new TextEncoder();
+        const text = cached.text;
+        let offset = 0;
+        const chunkSize = 90;
+        const cachedStream = new ReadableStream<Uint8Array>({
+          async pull(controller) {
+            if (offset >= text.length) {
+              controller.close();
+              return;
+            }
+            const slice = text.slice(offset, offset + chunkSize);
+            offset += chunkSize;
+            controller.enqueue(encoder.encode(slice));
+            await new Promise((r) => setTimeout(r, 8));
+          },
+        });
+        return new NextResponse(cachedStream, {
           status: 200,
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store, no-transform',
+            'X-Accel-Buffering': 'no',
             'X-Prompt-Cache': 'HIT',
             'X-Engine-Model': cached.model,
           },
@@ -877,7 +1135,7 @@ export async function POST(req: NextRequest) {
       }>
     > = [];
 
-    // 1. Parallel OpenRouter Vision Lanes at t = 0ms (eliminates sequential model waiting)
+    // 1. Parallel OpenRouter Vision Lanes at t = 0ms (prioritizing full-context models)
     if (openRouterKey) {
       const modelsPool = cachedFreeVisionModels.length
         ? cachedFreeVisionModels
@@ -885,18 +1143,18 @@ export async function POST(req: NextRequest) {
 
       const parallelLanes: string[][] = [
         [
+          'google/gemma-4-31b-it:free',
           'google/gemma-4-26b-a4b-it:free',
-          'dots-studio/dots-3-note-preview:free',
           ...modelsPool,
         ],
         [
-          'google/gemma-4-31b-it:free',
+          'google/gemma-4-26b-a4b-it:free',
           'qwen/qwen3.8-27b:free',
           ...modelsPool,
         ],
         [
-          'dots-studio/dots-3-note-preview:free',
-          'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+          'qwen/qwen3.8-27b:free',
+          'google/gemma-4-31b-it:free',
           ...modelsPool,
         ],
       ];
@@ -920,10 +1178,9 @@ export async function POST(req: NextRequest) {
     // 2. Direct Google Gemini Vision Models (parallel sub-second race)
     if (geminiKey) {
       for (const modelName of [
-        'gemini-3.8-flash',
-        'gemini-3.1-flash-lite',
         'gemini-2.5-flash',
         'gemini-3-flash-preview',
+        'gemini-3.1-flash-lite-preview',
       ] as const) {
         const ctrl = new AbortController();
         candidateControllers.push(ctrl);
@@ -940,7 +1197,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Optional NVIDIA NIM Vision Models (if NVIDIA_API_KEY is present)
+    // 3. Optional NVIDIA NIM Vision Models
     if (nvidiaKey) {
       for (const modelId of [
         'meta/llama-3.2-11b-vision-instruct',
@@ -991,24 +1248,73 @@ export async function POST(req: NextRequest) {
     const reader = winner.stream.getReader();
     const decoder = new TextDecoder();
     let fullText = '';
+    let continuationAttempted = false;
 
     const clientStream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {
           const {done, value} = await reader.read();
           if (done) {
+            fullText += decoder.decode();
+
+            // If upstream stream stopped early before completing Section F, seamlessly continue so zero text is truncated
+            if (
+              !continuationAttempted &&
+              fullText.trim().length > 80 &&
+              !isOutputComplete(fullText)
+            ) {
+              continuationAttempted = true;
+              const appended = await streamContinuationIfNeeded({
+                partialText: fullText,
+                openRouterKey,
+                geminiKey,
+                mimeType,
+                base64Data,
+                imageDataUrl,
+                telemetry,
+                controller,
+              });
+              fullText += appended;
+            }
+
             const cleaned = fullText.trim();
-            if (cleaned.length > 250 && !isRefusalText(cleaned)) {
+            if (isOutputComplete(cleaned) && !isRefusalText(cleaned)) {
               setCache(cacheKey, cleaned, winner.model);
             }
             controller.close();
             return;
           }
-          if (value) {
+          if (value && value.byteLength > 0) {
             fullText += decoder.decode(value, {stream: true});
             controller.enqueue(value);
           }
         } catch (err) {
+          // If the stream dropped mid-response after already emitting text, recover via seamless continuation instead of truncating
+          if (!continuationAttempted && fullText.trim().length > 80) {
+            continuationAttempted = true;
+            try {
+              const appended = await streamContinuationIfNeeded({
+                partialText: fullText,
+                openRouterKey,
+                geminiKey,
+                mimeType,
+                base64Data,
+                imageDataUrl,
+                telemetry,
+                controller,
+              });
+              fullText += appended;
+              const cleaned = fullText.trim();
+              if (isOutputComplete(cleaned) && !isRefusalText(cleaned)) {
+                setCache(cacheKey, cleaned, winner.model);
+              }
+              controller.close();
+              return;
+            } catch {
+              controller.close();
+              return;
+            }
+          }
           controller.error(err);
         }
       },
@@ -1022,7 +1328,10 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
+        'Cache-Control': 'no-cache, no-store, no-transform, must-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+        'X-Accel-Buffering': 'no',
         'X-Content-Type-Options': 'nosniff',
         'X-Engine-Model': winner.model,
       },

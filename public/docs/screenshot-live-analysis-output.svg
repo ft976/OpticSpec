@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 860" fill="none">
+  <!-- Browser Window Frame -->
+  <rect width="1100" height="860" rx="18" fill="#0B0F17"/>
+  <rect x="1.5" y="1.5" width="1097" height="857" rx="16.5" stroke="#1E293B" stroke-width="3"/>
+
+  <!-- Browser Top Chrome -->
+  <rect x="3" y="3" width="1094" height="44" rx="14" fill="#070A10"/>
+  <line x1="3" y1="47" x2="1097" y2="47" stroke="#1E293B" stroke-width="1.5"/>
+  <circle cx="28" cy="25" r="6" fill="#EF4444"/>
+  <circle cx="48" cy="25" r="6" fill="#F59E0B"/>
+  <circle cx="68" cy="25" r="6" fill="#10B981"/>
+  <rect x="340" y="12" width="420" height="26" rx="6" fill="#111723" stroke="#1E293B"/>
+  <text x="550" y="29" text-anchor="middle" fill="#94A3B8" font-family="monospace" font-size="12">https://opticspec.vercel.app</text>
+
+  <!-- App Header Bar -->
+  <line x1="3" y1="108" x2="1097" y2="108" stroke="#1F2937" stroke-width="1.5"/>
+  <rect x="180" y="62" width="32" height="32" rx="8" fill="#111723" stroke="#262626" stroke-width="1.5"/>
+  <circle cx="196" cy="78" r="4.5" stroke="#F8FAFC" stroke-width="2"/>
+  <circle cx="196" cy="78" r="1.8" fill="#76B900"/>
+  <text x="224" y="84" fill="#FFFFFF" font-family="sans-serif" font-size="19" font-weight="700">OpticSpec</text>
+  <text x="324" y="84" fill="#9CA3AF" font-family="sans-serif" font-size="14">Image to Prompt</text>
+
+  <!-- Uploaded Image Preview Card -->
+  <rect x="310" y="130" width="480" height="220" rx="14" fill="#111723" stroke="#1E293B" stroke-width="1.5"/>
+  <!-- Stylized Watch Movement Graphic Inside Preview -->
+  <circle cx="550" cy="240" r="78" fill="#161F30" stroke="#D49B4B" stroke-width="2.5"/>
+  <circle cx="550" cy="240" r="46" fill="#0B0F17" stroke="#94A3B8" stroke-width="2" stroke-dasharray="6 4"/>
+  <circle cx="550" cy="240" r="14" fill="#E11D48"/>
+  <circle cx="510" cy="215" r="20" stroke="#D49B4B" stroke-width="2"/>
+  <circle cx="592" cy="262" r="22" stroke="#E2E8F0" stroke-width="2"/>
+  <text x="550" y="336" text-anchor="middle" fill="#94A3B8" font-family="monospace" font-size="11">Uploaded Source Preview (840px Optical Scan)</text>
+
+  <!-- Action Toolbar Below Image -->
+  <rect x="180" y="366" width="175" height="32" rx="8" fill="#262626"/>
+  <text x="267" y="386" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="12" font-weight="500">Upload Different Image</text>
+
+  <rect x="765" y="366" width="110" height="32" rx="8" fill="#171717" stroke="#262626"/>
+  <text x="820" y="386" text-anchor="middle" fill="#E5E7EB" font-family="sans-serif" font-size="12" font-weight="500">Re-analyze</text>
+
+  <rect x="885" y="366" width="35" height="32" rx="8" fill="#171717" stroke="#262626"/>
+  <text x="902" y="386" text-anchor="middle" fill="#9CA3AF" font-family="sans-serif" font-size="13">✕</text>
+
+  <!-- Prompt Action Row -->
+  <text x="180" y="438" fill="#9CA3AF" font-family="sans-serif" font-size="13" font-weight="500">Analysis &amp; Prompt</text>
+
+  <rect x="595" y="418" width="175" height="34" rx="8" fill="#262626"/>
+  <text x="682" y="439" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="12" font-weight="600">Copy Master Prompt (C)</text>
+
+  <rect x="780" y="418" width="140" height="34" rx="8" fill="#76B900"/>
+  <text x="850" y="439" text-anchor="middle" fill="#0B0F17" font-family="sans-serif" font-size="12" font-weight="700">Copy Full Output</text>
+
+  <!-- Direct Unboxed Output Text -->
+  <text x="180" y="482" fill="#76B900" font-family="sans-serif" font-size="15" font-weight="700">### A. Quick Summary</text>
+  <text x="180" y="504" fill="#F3F4F6" font-family="sans-serif" font-size="13">Macro photorealistic close-up of an open-casework Swiss mechanical chronograph movement</text>
+  <text x="180" y="524" fill="#F3F4F6" font-family="sans-serif" font-size="13">with brushed brass gear trains, Côtes de Genève steel bridges, and synthetic ruby bearings...</text>
+
+  <text x="180" y="558" fill="#76B900" font-family="sans-serif" font-size="15" font-weight="700">### B. Detailed Breakdown (1–10)</text>
+  <text x="180" y="580" fill="#D1D5DB" font-family="sans-serif" font-size="13">1. Frame and Composition: 4:3 landscape macro, three-quarter oblique angle, shallow DoF...</text>
+  <text x="180" y="600" fill="#D1D5DB" font-family="sans-serif" font-size="13">2. Characters: 0 persons present. 3. Objects: Brushed brass escapement wheel, blued screws...</text>
+  <text x="180" y="620" fill="#D1D5DB" font-family="sans-serif" font-size="13">4. Written Text: Engraved "SWISS MADE" &amp; "27 JEWELS" on central bridge. 5. Colours: #141821...</text>
+
+  <text x="180" y="654" fill="#76B900" font-family="sans-serif" font-size="15" font-weight="700">### C. Final Master Prompt</text>
+  <text x="180" y="676" fill="#FFFFFF" font-family="sans-serif" font-size="13">Ultra-sharp macrohorology photograph, three-quarter oblique close-up angle, intricate exposed</text>
+  <text x="180" y="696" fill="#FFFFFF" font-family="sans-serif" font-size="13">Swiss mechanical watch movement with interlocking brushed brass gears (approx. #D49B4B),</text>
+  <text x="180" y="716" fill="#FFFFFF" font-family="sans-serif" font-size="13">rhodium-plated steel bridges engraved with "SWISS MADE", crimson ruby bearings (#9B1B30)...</text>
+
+  <text x="180" y="750" fill="#76B900" font-family="sans-serif" font-size="15" font-weight="700">### D. Negative Prompt  •  ### E. Short Version  •  ### F. Uncertainty Notes</text>
+  <text x="180" y="772" fill="#9CA3AF" font-family="sans-serif" font-size="12">Complete structured A–F sections streamed live directly onto the page with zero box clutter.</text>
+
+  <!-- Footer Attribution -->
+  <text x="550" y="828" text-anchor="middle" fill="#9CA3AF" font-family="sans-serif" font-size="14" font-weight="500">Developed by Rehan...🌻</text>
+</svg>

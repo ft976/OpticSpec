@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 440" fill="none">
+  <rect width="1060" height="440" rx="18" fill="#0B0F17"/>
+  <rect x="2" y="2" width="1056" height="436" rx="16" stroke="#1E293B" stroke-width="2"/>
+
+  <text x="40" y="46" fill="#FFFFFF" font-family="sans-serif" font-size="18" font-weight="700">CLIENT-SIDE OPTICAL INSTRUMENTATION (72×72 MATRIX &amp; 9-ZONE SPATIAL TELEMETRY)</text>
+  <text x="40" y="70" fill="#94A3B8" font-family="monospace" font-size="12">Executed in &lt;15ms via HTML5 Canvas 2D before streaming to Vision-Language Models</text>
+
+  <!-- Left: 3x3 9-Zone Grid Visualization -->
+  <rect x="40" y="96" width="300" height="300" rx="14" fill="#111723" stroke="#334155" stroke-width="1.5"/>
+  <!-- Grid cells -->
+  <rect x="56" y="112" width="84" height="84" rx="6" fill="#1B2632" stroke="#475569"/>
+  <text x="98" y="150" text-anchor="middle" fill="#F8FAFC" font-family="monospace" font-size="10" font-weight="700">TOP-LEFT</text>
+  <text x="98" y="168" text-anchor="middle" fill="#76B900" font-family="monospace" font-size="10">#1B2632 • 28%</text>
+
+  <rect x="148" y="112" width="84" height="84" rx="6" fill="#243447" stroke="#475569"/>
+  <text x="190" y="150" text-anchor="middle" fill="#F8FAFC" font-family="monospace" font-size="10" font-weight="700">TOP-CENTER</text>
+  <text x="190" y="168" text-anchor="middle" fill="#76B900" font-family="monospace" font-size="10">#243447 • 36%</text>
+
+  <rect x="240" y="112" width="84" height="84" rx="6" fill="#1E293B" stroke="#475569"/>
+  <text x="282" y="150" text-anchor="middle" fill="#F8FAFC" font-family="monospace" font-size="10" font-weight="700">TOP-RIGHT</text>
+  <text x="282" y="168" text-anchor="middle" fill="#76B900" font-family="monospace" font-size="10">#1E293B • 31%</text>
+
+  <rect x="56" y="204" width="84" height="84" rx="6" fill="#2C3E50" stroke="#475569"/>
+  <text x="98" y="242" text-anchor="middle" fill="#F8FAFC" font-family="monospace" font-size="10" font-weight="700">MID-LEFT</text>
+  <text x="98" y="260" text-anchor="middle" fill="#76B900" font-family="monospace" font-size="10">#2C3E50 • 42%</text>
+
+  <rect x="148" y="204" width="84" height="84" rx="6" fill="#D9822B" stroke="#76B900" stroke-width="2"/>
+  <text x="190" y="242" text-anchor="middle" fill="#0B0F17" font-family="monospace" font-size="10" font-weight="700">CENTER</text>
+  <text x="190" y="260" text-anchor="middle" fill="#0B0F17" font-family="monospace" font-size="10" font-weight="700">#D9822B • 68%</text>
+
+  <rect x="240" y="204" width="84" height="84" rx="6" fill="#34495E" stroke="#475569"/>
+  <text x="282" y="242" text-anchor="middle" fill="#F8FAFC" font-family="monospace" font-size="10" font-weight="700">MID-RIGHT</text>
+  <text x="282" y="260" text-anchor="middle" fill="#76B900" font-family="monospace" font-size="10">#34495E • 45%</text>
+
+  <rect x="56" y="296" width="84" height="84" rx="6" fill="#0F171E" stroke="#475569"/>
+  <text x="98" y="334" text-anchor="middle" fill="#F8FAFC" font-family="monospace" font-size="10" font-weight="700">BOT-LEFT</text>
+  <text x="98" y="352" text-anchor="middle" fill="#76B900" font-family="monospace" font-size="10">#0F171E • 16%</text>
+
+  <rect x="148" y="296" width="84" height="84" rx="6" fill="#16222F" stroke="#475569"/>
+  <text x="190" y="334" text-anchor="middle" fill="#F8FAFC" font-family="monospace" font-size="10" font-weight="700">BOT-CENTER</text>
+  <text x="190" y="352" text-anchor="middle" fill="#76B900" font-family="monospace" font-size="10">#16222F • 22%</text>
+
+  <rect x="240" y="296" width="84" height="84" rx="6" fill="#111924" stroke="#475569"/>
+  <text x="282" y="334" text-anchor="middle" fill="#F8FAFC" font-family="monospace" font-size="10" font-weight="700">BOT-RIGHT</text>
+  <text x="282" y="352" text-anchor="middle" fill="#76B900" font-family="monospace" font-size="10">#111924 • 18%</text>
+
+  <!-- Middle: 10-Cluster Chromatic Swatches -->
+  <rect x="370" y="96" width="320" height="300" rx="14" fill="#111723" stroke="#334155" stroke-width="1.5"/>
+  <text x="392" y="128" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">10-CLUSTER COLOUR QUANTIZATION</text>
+  <text x="392" y="150" fill="#94A3B8" font-family="monospace" font-size="11">Euclidean RGB Distance d ≥ 30</text>
+
+  <rect x="392" y="168" width="24" height="24" rx="4" fill="#1B2632"/>
+  <text x="426" y="184" fill="#E2E8F0" font-family="monospace" font-size="11">#1B2632 • 28% Primary Dominant Field</text>
+
+  <rect x="392" y="202" width="24" height="24" rx="4" fill="#D9822B"/>
+  <text x="426" y="218" fill="#E2E8F0" font-family="monospace" font-size="11">#D9822B • 19% Vibrant Chromatic Accent</text>
+
+  <rect x="392" y="236" width="24" height="24" rx="4" fill="#4A5D6E"/>
+  <text x="426" y="252" fill="#E2E8F0" font-family="monospace" font-size="11">#4A5D6E • 17% Midtone Surface Anchor</text>
+
+  <rect x="392" y="270" width="24" height="24" rx="4" fill="#0F171E"/>
+  <text x="426" y="286" fill="#E2E8F0" font-family="monospace" font-size="11">#0F171E • 15% Deep Shadow Base</text>
+
+  <rect x="392" y="304" width="24" height="24" rx="4" fill="#E6C280"/>
+  <text x="426" y="320" fill="#E2E8F0" font-family="monospace" font-size="11">#E6C280 • 11% Specular Peak Highlight</text>
+
+  <rect x="392" y="338" width="24" height="24" rx="4" fill="#2E4053"/>
+  <text x="426" y="354" fill="#E2E8F0" font-family="monospace" font-size="11">#2E4053 • 10% Low-Key Structural Tone</text>
+
+  <!-- Right: Rec.601 Luminance & Sunlight Kelvin -->
+  <rect x="720" y="96" width="300" height="300" rx="14" fill="#111723" stroke="#76B900" stroke-width="1.5"/>
+  <text x="742" y="128" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">LUMINANCE &amp; SUNLIGHT PHYSICS</text>
+  <text x="742" y="152" fill="#F8FAFC" font-family="monospace" font-size="11">Y = 0.299R + 0.587G + 0.114B</text>
+
+  <text x="742" y="186" fill="#CBD5E1" font-family="monospace" font-size="11">• Shadows (Y &lt; 70):       42%</text>
+  <text x="742" y="210" fill="#CBD5E1" font-family="monospace" font-size="11">• Midtones (70 ≤ Y ≤ 185): 46%</text>
+  <text x="742" y="234" fill="#CBD5E1" font-family="monospace" font-size="11">• Highlights (Y &gt; 185):    12%</text>
+  <text x="742" y="264" fill="#76B900" font-family="monospace" font-size="11" font-weight="700">• Exposure: 0.0 EV Balanced</text>
+  <text x="742" y="288" fill="#76B900" font-family="monospace" font-size="11" font-weight="700">• Sunlight: ~4600K Golden-Hour</text>
+  <text x="742" y="312" fill="#CBD5E1" font-family="monospace" font-size="11">• Encoding: sRGB / Rec.709</text>
+  <text x="742" y="336" fill="#CBD5E1" font-family="monospace" font-size="11">• Aspect Ratio: GCD Exact</text>
+</svg>

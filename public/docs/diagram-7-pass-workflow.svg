@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 520" fill="none">
+  <rect width="1060" height="520" rx="18" fill="#0B0F17"/>
+  <rect x="2" y="2" width="1056" height="516" rx="16" stroke="#1E293B" stroke-width="2"/>
+
+  <text x="40" y="46" fill="#FFFFFF" font-family="sans-serif" font-size="19" font-weight="700">7-PASS FULL-FRAME ANALYSIS WORKFLOW &amp; A–F PROMPT SYNTHESIS</text>
+  <text x="40" y="70" fill="#94A3B8" font-family="monospace" font-size="12">Every uploaded image completes all 7 sequential inspection passes before streaming Sections A to F</text>
+
+  <!-- Pass Cards Row 1 (Passes 1 to 4) -->
+  <rect x="40" y="96" width="230" height="145" rx="12" fill="#111723" stroke="#76B900" stroke-width="1.5"/>
+  <text x="56" y="124" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">PASS 01 • GLOBAL SCAN</text>
+  <text x="56" y="148" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="600">Macro Scene Overview</text>
+  <text x="56" y="172" fill="#CBD5E1" font-family="monospace" font-size="11">• Medium &amp; Image Type</text>
+  <text x="56" y="192" fill="#CBD5E1" font-family="monospace" font-size="11">• Total People Count</text>
+  <text x="56" y="212" fill="#CBD5E1" font-family="monospace" font-size="11">• Light &amp; Mood Axis</text>
+
+  <rect x="290" y="96" width="230" height="145" rx="12" fill="#111723" stroke="#334155" stroke-width="1.5"/>
+  <text x="306" y="124" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">PASS 02 • SPATIAL SCAN</text>
+  <text x="306" y="148" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="600">11-Region Edge Sweep</text>
+  <text x="306" y="172" fill="#CBD5E1" font-family="monospace" font-size="11">• Top-L / Top-C / Top-R</text>
+  <text x="306" y="192" fill="#CBD5E1" font-family="monospace" font-size="11">• Left / Centre / Right</text>
+  <text x="306" y="212" fill="#CBD5E1" font-family="monospace" font-size="11">• Bot-L / Bot-C / Bot-R</text>
+
+  <rect x="540" y="96" width="230" height="145" rx="12" fill="#111723" stroke="#334155" stroke-width="1.5"/>
+  <text x="556" y="124" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">PASS 03 • SUBJECT SCAN</text>
+  <text x="556" y="148" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="600">Objects &amp; Structures</text>
+  <text x="556" y="172" fill="#CBD5E1" font-family="monospace" font-size="11">• Exact Position &amp; Scale</text>
+  <text x="556" y="192" fill="#CBD5E1" font-family="monospace" font-size="11">• Materials &amp; Condition</text>
+  <text x="556" y="212" fill="#CBD5E1" font-family="monospace" font-size="11">• Neighbour Relations</text>
+
+  <rect x="790" y="96" width="230" height="145" rx="12" fill="#111723" stroke="#76B900" stroke-width="1.5"/>
+  <text x="806" y="124" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">PASS 04 • TEXT (OCR)</text>
+  <text x="806" y="148" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="600">Verbatim Typography</text>
+  <text x="806" y="172" fill="#CBD5E1" font-family="monospace" font-size="11">• Signs, Labels, Screens</text>
+  <text x="806" y="192" fill="#CBD5E1" font-family="monospace" font-size="11">• Font Weight &amp; Surface</text>
+  <text x="806" y="212" fill="#CBD5E1" font-family="monospace" font-size="11">• Legibility Markers</text>
+
+  <!-- Pass Cards Row 2 (Passes 5 to 7 + Output A-F) -->
+  <rect x="40" y="264" width="230" height="145" rx="12" fill="#111723" stroke="#76B900" stroke-width="1.5"/>
+  <text x="56" y="292" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">PASS 05 • PEOPLE SCAN</text>
+  <text x="56" y="316" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="600">Expression &amp; Emotion</text>
+  <text x="56" y="340" fill="#CBD5E1" font-family="monospace" font-size="11">• Gaze, Eyebrows, Lips</text>
+  <text x="56" y="360" fill="#CBD5E1" font-family="monospace" font-size="11">• Primary/Secondary Mood</text>
+  <text x="56" y="380" fill="#CBD5E1" font-family="monospace" font-size="11">• Lived Impression Layer</text>
+
+  <rect x="290" y="264" width="230" height="145" rx="12" fill="#111723" stroke="#334155" stroke-width="1.5"/>
+  <text x="306" y="292" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">PASS 06 • TECHNICAL</text>
+  <text x="306" y="316" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="600">Optics &amp; Lighting</text>
+  <text x="306" y="340" fill="#CBD5E1" font-family="monospace" font-size="11">• Viewpoint &amp; DoF Blur</text>
+  <text x="306" y="360" fill="#CBD5E1" font-family="monospace" font-size="11">• Sunlight &amp; Exposure</text>
+  <text x="306" y="380" fill="#CBD5E1" font-family="monospace" font-size="11">• Colour Grading &amp; Hex</text>
+
+  <rect x="540" y="264" width="230" height="145" rx="12" fill="#111723" stroke="#334155" stroke-width="1.5"/>
+  <text x="556" y="292" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">PASS 07 • CONSISTENCY</text>
+  <text x="556" y="316" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="600">Zero-Hallucination Audit</text>
+  <text x="556" y="340" fill="#CBD5E1" font-family="monospace" font-size="11">• All People Counted</text>
+  <text x="556" y="360" fill="#CBD5E1" font-family="monospace" font-size="11">• Left/Right Verified</text>
+  <text x="556" y="380" fill="#CBD5E1" font-family="monospace" font-size="11">• No Contradictions</text>
+
+  <rect x="790" y="264" width="230" height="145" rx="12" fill="#162312" stroke="#76B900" stroke-width="2"/>
+  <text x="806" y="292" fill="#76B900" font-family="monospace" font-size="12" font-weight="700">FINAL OUTPUT (A – F)</text>
+  <text x="806" y="316" fill="#FFFFFF" font-family="sans-serif" font-size="13" font-weight="700">Structured Master Report</text>
+  <text x="806" y="340" fill="#E2E8F0" font-family="monospace" font-size="11">A. Summary • B. Breakdown</text>
+  <text x="806" y="360" fill="#E2E8F0" font-family="monospace" font-size="11">C. Master Prompt Paragraph</text>
+  <text x="806" y="380" fill="#E2E8F0" font-family="monospace" font-size="11">D. Negative • E. Short • F. Notes</text>
+
+  <!-- Bottom Summary Banner -->
+  <rect x="40" y="432" width="980" height="54" rx="10" fill="#111723" stroke="#1E293B"/>
+  <text x="530" y="464" text-anchor="middle" fill="#E2E8F0" font-family="monospace" font-size="12">Rule 3.3 Separation: [Visible Fact]  →  [Likely Reading / Interpretation]  →  [Unclear / Partially Visible Marker]</text>
+</svg>

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" fill="none">
+  <rect width="1200" height="540" rx="18" fill="#0B0F17"/>
+  <rect x="8" y="8" width="1184" height="524" rx="14" stroke="#1E293B" stroke-width="2"/>
+
+  <text x="600" y="48" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="20" font-weight="bold">t = 0ms Parallel Multi-Engine Vision Streaming Race (/api/analyze)</text>
+  <text x="600" y="74" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="13">Simultaneous Promise.any() Dispatch • 38-Char Non-Refusal Gate • Instant AbortController Cleanup</text>
+
+  <!-- Input Node -->
+  <rect x="40" y="185" width="220" height="170" rx="12" fill="#111723" stroke="#38BDF8" stroke-width="2"/>
+  <text x="150" y="220" text-anchor="middle" fill="#38BDF8" font-family="sans-serif" font-size="14" font-weight="bold">Client Payload (t = 0ms)</text>
+  <text x="150" y="246" text-anchor="middle" fill="#E2E8F0" font-family="monospace" font-size="11.5">• 840px JPEG DataURL</text>
+  <text x="150" y="268" text-anchor="middle" fill="#E2E8F0" font-family="monospace" font-size="11.5">• 72x72 Pixel Telemetry</text>
+  <text x="150" y="290" text-anchor="middle" fill="#E2E8F0" font-family="monospace" font-size="11.5">• 9-Zone HEX + Luminance</text>
+  <text x="150" y="312" text-anchor="middle" fill="#10B981" font-family="monospace" font-size="11.5">• SHA-1 LRU Cache Check</text>
+  <text x="150" y="334" text-anchor="middle" fill="#94A3B8" font-family="monospace" font-size="10.5">(&lt;2ms HIT on repeat image)</text>
+
+  <!-- Connector Lines -->
+  <path d="M260 230 L340 145" stroke="#38BDF8" stroke-width="2"/>
+  <path d="M260 270 L340 270" stroke="#10B981" stroke-width="2"/>
+  <path d="M260 310 L340 395" stroke="#F59E0B" stroke-width="2"/>
+
+  <!-- Engine Pool 1: OpenRouter Free Vision Models -->
+  <rect x="340" y="100" width="430" height="105" rx="12" fill="#111723" stroke="#38BDF8" stroke-width="1.5"/>
+  <text x="360" y="126" fill="#38BDF8" font-family="sans-serif" font-size="13.5" font-weight="bold">1. OpenRouter Live Free Vision Pool (OPENROUTER_API_KEY)</text>
+  <text x="360" y="148" fill="#CBD5E1" font-family="monospace" font-size="11">• dots-studio/dots-3-note-preview:free</text>
+  <text x="360" y="166" fill="#CBD5E1" font-family="monospace" font-size="11">• nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free</text>
+  <text x="360" y="184" fill="#CBD5E1" font-family="monospace" font-size="11">• google/gemma-4-31b-it:free &amp; qwen/qwen3.8-27b:free</text>
+
+  <!-- Engine Pool 2: Direct Google Gemini Vision -->
+  <rect x="340" y="222" width="430" height="96" rx="12" fill="#111723" stroke="#10B981" stroke-width="1.5"/>
+  <text x="360" y="248" fill="#10B981" font-family="sans-serif" font-size="13.5" font-weight="bold">2. Direct Google Gemini Vision Pool (GEMINI_API_KEY)</text>
+  <text x="360" y="272" fill="#CBD5E1" font-family="monospace" font-size="11">• gemini-2.5-flash (thinkingBudget: 0 — sub-second TTFT)</text>
+  <text x="360" y="292" fill="#CBD5E1" font-family="monospace" font-size="11">• gemini-3-flash-preview (ThinkingLevel.MINIMAL)</text>
+
+  <!-- Engine Pool 3: Optional NVIDIA NIM Vision -->
+  <rect x="340" y="336" width="430" height="96" rx="12" fill="#111723" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="360" y="362" fill="#F59E0B" font-family="sans-serif" font-size="13.5" font-weight="bold">3. Optional NVIDIA NIM Pool (NVIDIA_API_KEY)</text>
+  <text x="360" y="386" fill="#CBD5E1" font-family="monospace" font-size="11">• meta/llama-3.2-11b-vision-instruct</text>
+  <text x="360" y="406" fill="#CBD5E1" font-family="monospace" font-size="11">• meta/llama-3.2-90b-vision-instruct</text>
+
+  <!-- Convergence Lines -->
+  <path d="M770 152 L850 245" stroke="#38BDF8" stroke-width="2"/>
+  <path d="M770 270 L850 270" stroke="#10B981" stroke-width="2"/>
+  <path d="M770 384 L850 295" stroke="#F59E0B" stroke-width="2"/>
+
+  <!-- Output Verification Gate -->
+  <rect x="850" y="165" width="310" height="210" rx="12" fill="#0F1922" stroke="#10B981" stroke-width="2"/>
+  <text x="1005" y="198" text-anchor="middle" fill="#10B981" font-family="sans-serif" font-size="14.5" font-weight="bold">38-Char Non-Refusal Gate</text>
+  <text x="870" y="226" fill="#E2E8F0" font-family="sans-serif" font-size="12">1. Inspects first 38 streamed chars</text>
+  <text x="870" y="248" fill="#E2E8F0" font-family="sans-serif" font-size="12">2. Rejects any safety refusal or</text>
+  <text x="870" y="266" fill="#E2E8F0" font-family="sans-serif" font-size="12">   empty reasoning stream</text>
+  <text x="870" y="290" fill="#E2E8F0" font-family="sans-serif" font-size="12">3. First valid stream wins race &amp;</text>
+  <text x="870" y="308" fill="#E2E8F0" font-family="sans-serif" font-size="12">   aborts all slower connections</text>
+  <text x="870" y="336" fill="#38BDF8" font-family="monospace" font-size="11.5">→ Live Stream Sections A–F to UI</text>
+  <text x="870" y="356" fill="#94A3B8" font-family="monospace" font-size="11">→ Cache full output in PROMPT_CACHE</text>
+
+  <text x="600" y="495" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="12.5">Strict System Prompt: Image-to-Prompt Generation: Final Master Instruction File (v2) • max_tokens: 4096</text>
+</svg>

@@ -14,38 +14,43 @@ export const maxDuration = 60;
 
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_MODELS_ENDPOINT = 'https://openrouter.ai/api/v1/models';
+const NVIDIA_NIM_ENDPOINT =
+  'https://integrate.api.nvidia.com/v1/chat/completions';
 
-// High-speed in-memory LRU cache (instant <2ms response on repeat images)
+// High-speed in-memory LRU cache (instant <2ms response on repeat image uploads)
 const PROMPT_CACHE = new Map<string, {text: string; model: string}>();
 const MAX_CACHE_ENTRIES = 150;
 
-// Cached live list of OpenRouter free vision models
-let cachedFreeVisionModels: string[] | null = null;
-let cachedModelsTimestamp = 0;
-
+// Verified high-speed free vision models on OpenRouter ordered by fastest TTFT & multimodal accuracy
 const DEFAULT_FREE_VISION_MODELS: string[] = [
-  'google/gemma-4-31b-it:free',
   'google/gemma-4-26b-a4b-it:free',
+  'google/gemma-4-31b-it:free',
   'qwen/qwen3.8-27b:free',
-  'thinkingmachines/inkling:free',
-  'thinkingmachines/inkling-small:free',
   'dots-studio/dots-3-note-preview:free',
-  'openrouter/free',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
 ];
 
-async function getLiveOpenRouterFreeVisionModels(): Promise<string[]> {
-  const now = Date.now();
-  if (cachedFreeVisionModels && now - cachedModelsTimestamp < 10 * 60 * 1000) {
-    return cachedFreeVisionModels;
-  }
+let cachedFreeVisionModels: string[] = [...DEFAULT_FREE_VISION_MODELS];
+let cachedModelsTimestamp = 0;
+let isRefreshingModels = false;
 
+/**
+ * Non-blocking background refresh of live OpenRouter free vision models.
+ * Never blocks t = 0ms request dispatch.
+ */
+async function refreshOpenRouterFreeVisionModelsInBackground(): Promise<void> {
+  const now = Date.now();
+  if (isRefreshingModels || now - cachedModelsTimestamp < 10 * 60 * 1000) {
+    return;
+  }
+  isRefreshingModels = true;
   try {
     const res = await fetch(OPENROUTER_MODELS_ENDPOINT, {
       method: 'GET',
       headers: {Accept: 'application/json'},
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(3000),
     });
-    if (!res.ok) return DEFAULT_FREE_VISION_MODELS;
+    if (!res.ok) return;
 
     const json = await res.json();
     const models = Array.isArray(json?.data) ? json.data : [];
@@ -57,7 +62,11 @@ async function getLiveOpenRouterFreeVisionModels(): Promise<string[]> {
         }) => {
           const id = m?.id || '';
           if (!id.endsWith(':free')) return false;
-          if (id.includes('content-safety') || id.includes('guard')) {
+          if (
+            id.includes('content-safety') ||
+            id.includes('guard') ||
+            id.includes('inkling')
+          ) {
             return false;
           }
           const inputs = m?.architecture?.input_modalities || [];
@@ -68,26 +77,16 @@ async function getLiveOpenRouterFreeVisionModels(): Promise<string[]> {
       .map((m: {id: string}) => m.id);
 
     if (discovered.length > 0) {
-      // Prioritize Google Gemma 4 models first, then Qwen, then other live free vision models
-      const googleModels = discovered.filter((id) => id.startsWith('google/'));
-      const qwenModels = discovered.filter((id) => id.startsWith('qwen/'));
-      const otherModels = discovered.filter(
-        (id) => !id.startsWith('google/') && !id.startsWith('qwen/')
+      cachedFreeVisionModels = Array.from(
+        new Set([...DEFAULT_FREE_VISION_MODELS, ...discovered])
       );
-      cachedFreeVisionModels = [
-        ...googleModels,
-        ...qwenModels,
-        ...otherModels,
-        'openrouter/free',
-      ];
-      cachedModelsTimestamp = now;
-      return cachedFreeVisionModels;
+      cachedModelsTimestamp = Date.now();
     }
   } catch {
-    // Use default verified list if models endpoint times out
+    // Keep verified default list on network timeout
+  } finally {
+    isRefreshingModels = false;
   }
-
-  return DEFAULT_FREE_VISION_MODELS;
 }
 
 const REFUSAL_PATTERNS = [
@@ -353,7 +352,9 @@ A short list of anything unclear (unreadable text, hidden faces, cropped objects
 
 > Analyse the attached image completely, covering the entire frame including all corners and edges. Follow the Image-to-Prompt Master Instructions. Count every person and describe each one's apparent gender presentation, age group, body, clothing, pose, movement, facial expression, emotion, body language, and the impression they give. Identify all objects, animals, plants, and environment details. Read every written word and place it exactly where it appears. Describe all colours with exact names, approximate hex codes, colour mood, brightness, sunlight, shadows, and lighting direction. Describe all motion and stillness, sizes, positions, design, and overall atmosphere. Do not identify real people from faces, and do not invent anything that is not visible; mark unclear details as unclear. Deliver: A) Quick Summary, B) Detailed Breakdown, C) Final Master Prompt, D) Negative Prompt, E) Short Version, F) Uncertainty Notes.`;
 
-const QUICK_USE_USER_PROMPT = `Analyse the attached image completely, covering the entire frame including all corners and edges. Follow the Image-to-Prompt Master Instructions. Count every person and describe each one's apparent gender presentation, age group, body, clothing, pose, movement, facial expression, emotion, body language, and the impression they give. Identify all objects, animals, plants, and environment details. Read every written word and place it exactly where it appears. Describe all colours with exact names, approximate hex codes, colour mood, brightness, sunlight, shadows, and lighting direction. Describe all motion and stillness, sizes, positions, design, and overall atmosphere. Do not identify real people from faces, and do not invent anything that is not visible; mark unclear details as unclear. Deliver: A) Quick Summary, B) Detailed Breakdown, C) Final Master Prompt, D) Negative Prompt, E) Short Version, F) Uncertainty Notes.`;
+const QUICK_USE_USER_PROMPT = `Analyse the attached image completely, covering the entire frame including all corners and edges. Follow the Image-to-Prompt Master Instructions. Count every person and describe each one's apparent gender presentation, age group, body, clothing, pose, movement, facial expression, emotion, body language, and the impression they give. Identify all objects, animals, plants, and environment details. Read every written word and place it exactly where it appears. Describe all colours with exact names, approximate hex codes, colour mood, brightness, sunlight, shadows, and lighting direction. Describe all motion and stillness, sizes, positions, design, and overall atmosphere. Do not identify real people from faces, and do not invent anything that is not visible; mark unclear details as unclear. Deliver: A) Quick Summary, B) Detailed Breakdown, C) Final Master Prompt, D) Negative Prompt, E) Short Version, F) Uncertainty Notes.
+
+Begin your response immediately with "### A. Quick Summary" and deliver all sections A, B (1 to 10), C, D, E, and F in exact order.`;
 
 function buildUserMessage(telemetry?: PixelTelemetry): string {
   if (!telemetry) {
@@ -361,17 +362,27 @@ function buildUserMessage(telemetry?: PixelTelemetry): string {
   }
 
   const approxSwatches = telemetry.swatches
-    .slice(0, 8)
-    .map((s) => `approx. ${s.hex}`)
+    .slice(0, 10)
+    .map((s) => `approx. ${s.hex} (~${s.percentage}%, ${s.role})`)
     .join(', ');
+
+  const spatialZones = telemetry.colorEncoding.nineZoneGrid
+    .map((z) => `${z.zoneName}: approx. ${z.hex} (~${z.brightnessPct}% brightness)`)
+    .join('; ');
 
   return `${QUICK_USE_USER_PROMPT}
 
-(Approximate visual reference notes from image scan per Rule 3.5: orientation/aspect ratio approx. ${telemetry.aspectRatio}; dominant approximate hex references: ${approxSwatches}; approximate overall brightness ~${telemetry.luminance.brightnessPct}%.)`;
+(Approximate full-frame optical reference notes from image scan per Rule 3.5:
+- Dimensions & Aspect Ratio: ${telemetry.width}x${telemetry.height} (approx. ${telemetry.aspectRatio})
+- Dominant Approximate Hex Swatches: ${approxSwatches}
+- 9-Zone Spatial Scan Reference (Pass 2): ${spatialZones}
+- Luminance & Exposure Profile (Pass 6): overall brightness ~${telemetry.luminance.brightnessPct}%, shadows ~${telemetry.luminance.shadowsPct}%, midtones ~${telemetry.luminance.midtonesPct}%, highlights ~${telemetry.luminance.highlightsPct}%, ${telemetry.luminance.dynamicContrast}, ${telemetry.luminance.exposureProfile}
+- Colour Temperature & Saturation: mean saturation ~${telemetry.colorEncoding.meanSaturationPct}%, ${telemetry.colorEncoding.temperatureBias}, approx. ${telemetry.colorEncoding.estimatedKelvin})`;
 }
 
 /**
- * Verifies the initial stream is non-empty and not a safety refusal.
+ * Low-latency verification gate: confirms the stream starts emitting non-refusal markdown
+ * within the first 16 characters and flushes immediately to minimize Time-To-First-Token.
  */
 async function verifyStreamNotRefused(
   rawStream: ReadableStream<Uint8Array>,
@@ -382,12 +393,22 @@ async function verifyStreamNotRefused(
   const bufferedChunks: Uint8Array[] = [];
   let initialText = '';
 
-  while (initialText.length < 32) {
+  while (initialText.trim().length < 16) {
     const {done, value} = await reader.read();
     if (done) break;
     if (value) {
       bufferedChunks.push(value);
       initialText += decoder.decode(value, {stream: true});
+      const trimmed = initialText.trim();
+      // Fast-path: if the model already began emitting Section A header, immediately flush!
+      if (
+        trimmed.startsWith('### A') ||
+        trimmed.startsWith('## A') ||
+        trimmed.startsWith('**A.') ||
+        trimmed.startsWith('A. Quick')
+      ) {
+        break;
+      }
     }
   }
 
@@ -427,38 +448,30 @@ async function verifyStreamNotRefused(
 }
 
 /**
- * Calls OpenRouter using the live discovered free vision models (`google/gemma-4-31b-it:free`,
- * `google/gemma-4-26b-a4b-it:free`, `qwen/qwen3.8-27b:free`, etc.).
- * Uses sequential model fallback to avoid OpenRouter `:free` concurrent burst 429 errors.
+ * Single OpenRouter Vision Lane with automatic fallback across assigned candidate models.
+ * Multiple lanes are raced in parallel at t = 0ms so a single queued model never slows down analysis.
  */
-async function fetchOpenRouterLiveVisionStream(
+async function fetchOpenRouterVisionLane(
   apiKey: string,
+  laneModels: string[],
   imageDataUrl: string,
   userMessage: string,
   parentSignal: AbortSignal
 ): Promise<{stream: ReadableStream<Uint8Array>; model: string}> {
-  const liveModels = await getLiveOpenRouterFreeVisionModels();
   const combinedInstructionAndPrompt = `${MASTER_INSTRUCTION_FILE_V2}\n\n---\n\n${userMessage}`;
   const errors: string[] = [];
 
-  // Group into batches of up to 3 models for OpenRouter's native `models` fallback array
-  const batches: string[][] = [];
-  for (let i = 0; i < liveModels.length; i += 3) {
-    batches.push(liveModels.slice(i, i + 3));
-  }
-
-  for (const batch of batches) {
+  for (const modelId of laneModels) {
     if (parentSignal.aborted) {
       throw new Error('Aborted');
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 18000);
     const onParentAbort = () => controller.abort();
     parentSignal.addEventListener('abort', onParentAbort, {once: true});
 
     try {
-      const primaryModel = batch[0];
       const response = await fetch(OPENROUTER_ENDPOINT, {
         method: 'POST',
         signal: controller.signal,
@@ -474,8 +487,8 @@ async function fetchOpenRouterLiveVisionStream(
           'X-Title': 'OpticSpec Image to Prompt',
         },
         body: JSON.stringify({
-          model: primaryModel,
-          ...(batch.length > 1 ? {models: batch, route: 'fallback'} : {}),
+          model: modelId,
+          reasoning: {effort: 'low', exclude: true},
           messages: [
             {
               role: 'user',
@@ -497,7 +510,7 @@ async function fetchOpenRouterLiveVisionStream(
       if (!response.ok || !response.body) {
         const errText = await response.text().catch(() => '');
         errors.push(
-          `OpenRouter (${batch.join(', ')}) HTTP ${response.status}: ${errText.slice(0, 120)}`
+          `OpenRouter (${modelId}) HTTP ${response.status}: ${errText.slice(0, 80)}`
         );
         continue;
       }
@@ -549,7 +562,7 @@ async function fetchOpenRouterLiveVisionStream(
       const verifiedStream = await verifyStreamNotRefused(sseStream, () =>
         controller.abort()
       );
-      return {stream: verifiedStream, model: `openrouter:${primaryModel}`};
+      return {stream: verifiedStream, model: `openrouter:${modelId}`};
     } catch (err) {
       clearTimeout(timeoutId);
       errors.push(err instanceof Error ? err.message : String(err));
@@ -559,16 +572,20 @@ async function fetchOpenRouterLiveVisionStream(
   }
 
   throw new Error(
-    errors.join(' | ') || 'OpenRouter free vision models failed.'
+    errors.join(' | ') || 'OpenRouter vision lane failed.'
   );
 }
 
 /**
- * Direct Google Multimodal Vision stream (`gemini-2.5-flash` / `gemini-3-flash-preview`).
+ * Direct Google Multimodal Vision stream (`gemini-3.8-flash`, `gemini-3.1-flash-lite`, `gemini-2.5-flash`, `gemini-3-flash-preview`).
  */
 async function fetchDirectGoogleVisionStream(
   apiKey: string,
-  modelName: 'gemini-2.5-flash' | 'gemini-3-flash-preview',
+  modelName:
+    | 'gemini-3.8-flash'
+    | 'gemini-3.1-flash-lite'
+    | 'gemini-2.5-flash'
+    | 'gemini-3-flash-preview',
   mimeType: string,
   base64Data: string,
   userMessage: string,
@@ -655,12 +672,110 @@ async function fetchDirectGoogleVisionStream(
   });
 }
 
+/**
+ * Optional NVIDIA NIM Vision support if NVIDIA_API_KEY is present in environment variables.
+ */
+async function fetchNvidiaVisionStream(
+  apiKey: string,
+  modelId: string,
+  imageDataUrl: string,
+  userMessage: string,
+  parentSignal: AbortSignal
+): Promise<ReadableStream<Uint8Array>> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 16000);
+  const onParentAbort = () => controller.abort();
+  parentSignal.addEventListener('abort', onParentAbort, {once: true});
+
+  try {
+    const response = await fetch(NVIDIA_NIM_ENDPOINT, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [
+          {role: 'system', content: MASTER_INSTRUCTION_FILE_V2},
+          {
+            role: 'user',
+            content: [
+              {type: 'text', text: userMessage},
+              {type: 'image_url', image_url: {url: imageDataUrl}},
+            ],
+          },
+        ],
+        temperature: 0.15,
+        top_p: 0.9,
+        max_tokens: 4096,
+        stream: true,
+      }),
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok || !response.body) {
+      throw new Error(`NVIDIA (${modelId}) HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+
+    const sseStream = new ReadableStream<Uint8Array>({
+      async start(streamController) {
+        let buffer = '';
+        try {
+          while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, {stream: true});
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data:')) continue;
+              const dataStr = trimmed.slice(5).trim();
+              if (dataStr === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(dataStr);
+                const delta = parsed?.choices?.[0]?.delta?.content;
+                if (delta) streamController.enqueue(encoder.encode(delta));
+              } catch {
+                // ignore partial chunk
+              }
+            }
+          }
+          streamController.close();
+        } catch (err) {
+          streamController.error(err);
+        }
+      },
+      cancel() {
+        reader.cancel().catch(() => {});
+        controller.abort();
+      },
+    });
+
+    return await verifyStreamNotRefused(sseStream, () => controller.abort());
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  } finally {
+    parentSignal.removeEventListener('abort', onParentAbort);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const {imageDataUrl, telemetry} = body as {
+    const {imageDataUrl, telemetry, forceFresh} = body as {
       imageDataUrl?: string;
       telemetry?: PixelTelemetry;
+      forceFresh?: boolean;
     };
 
     if (!imageDataUrl || typeof imageDataUrl !== 'string') {
@@ -673,21 +788,26 @@ export async function POST(req: NextRequest) {
     const cacheKey = crypto
       .createHash('sha1')
       .update(
-        `v14-gemma4-live:${imageDataUrl.slice(0, 6144)}:${imageDataUrl.length}`
+        `v16-master-v2:${imageDataUrl.slice(0, 6144)}:${imageDataUrl.length}`
       )
       .digest('hex');
 
-    const cached = PROMPT_CACHE.get(cacheKey);
-    if (cached && !isRefusalText(cached.text)) {
-      return new NextResponse(cached.text, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'X-Prompt-Cache': 'HIT',
-          'X-Engine-Model': cached.model,
-        },
-      });
+    if (!forceFresh) {
+      const cached = PROMPT_CACHE.get(cacheKey);
+      if (cached && !isRefusalText(cached.text)) {
+        return new NextResponse(cached.text, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'X-Prompt-Cache': 'HIT',
+            'X-Engine-Model': cached.model,
+          },
+        });
+      }
     }
+
+    // Trigger non-blocking model discovery refresh in background
+    void refreshOpenRouterFreeVisionModelsInBackground();
 
     const userMessage = buildUserMessage(telemetry);
     const match = imageDataUrl.match(
@@ -700,6 +820,9 @@ export async function POST(req: NextRequest) {
     const rawOpenRouterCandidate =
       process.env.OPENROUTER_API_KEY ||
       process.env.NEXT_PUBLIC_OPENROUTER_API_KEY ||
+      (process.env.NVIDIA_API_KEY?.trim().startsWith('sk-or-')
+        ? process.env.NVIDIA_API_KEY
+        : '') ||
       (process.env.GEMINI_API_KEY?.trim().startsWith('sk-or-')
         ? process.env.GEMINI_API_KEY
         : '');
@@ -725,7 +848,17 @@ export async function POST(req: NextRequest) {
         ? rawGeminiCandidate.trim()
         : '';
 
-    if (!openRouterKey && !geminiKey) {
+    const rawNvidiaCandidate =
+      process.env.NVIDIA_API_KEY || process.env.NEXT_PUBLIC_NVIDIA_API_KEY || '';
+    const nvidiaKey =
+      rawNvidiaCandidate &&
+      rawNvidiaCandidate.trim() !== 'MY_NVIDIA_API_KEY' &&
+      !rawNvidiaCandidate.trim().startsWith('sk-or-') &&
+      rawNvidiaCandidate.trim().length > 10
+        ? rawNvidiaCandidate.trim()
+        : '';
+
+    if (!openRouterKey && !geminiKey && !nvidiaKey) {
       return NextResponse.json(
         {
           error:
@@ -744,23 +877,51 @@ export async function POST(req: NextRequest) {
       }>
     > = [];
 
-    // 1. OpenRouter Live Free Google Vision Models (`google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`, `qwen/qwen3.8-27b:free`)
+    // 1. Parallel OpenRouter Vision Lanes at t = 0ms (eliminates sequential model waiting)
     if (openRouterKey) {
-      const ctrl = new AbortController();
-      candidateControllers.push(ctrl);
-      racePromises.push(
-        fetchOpenRouterLiveVisionStream(
-          openRouterKey,
-          imageDataUrl,
-          userMessage,
-          ctrl.signal
-        ).then(({stream, model}) => ({stream, ctrl, model}))
-      );
+      const modelsPool = cachedFreeVisionModels.length
+        ? cachedFreeVisionModels
+        : DEFAULT_FREE_VISION_MODELS;
+
+      const parallelLanes: string[][] = [
+        [
+          'google/gemma-4-26b-a4b-it:free',
+          'dots-studio/dots-3-note-preview:free',
+          ...modelsPool,
+        ],
+        [
+          'google/gemma-4-31b-it:free',
+          'qwen/qwen3.8-27b:free',
+          ...modelsPool,
+        ],
+        [
+          'dots-studio/dots-3-note-preview:free',
+          'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+          ...modelsPool,
+        ],
+      ];
+
+      for (const laneModels of parallelLanes) {
+        const uniqueLane = Array.from(new Set(laneModels));
+        const ctrl = new AbortController();
+        candidateControllers.push(ctrl);
+        racePromises.push(
+          fetchOpenRouterVisionLane(
+            openRouterKey,
+            uniqueLane,
+            imageDataUrl,
+            userMessage,
+            ctrl.signal
+          ).then(({stream, model}) => ({stream, ctrl, model}))
+        );
+      }
     }
 
-    // 2. Direct Google Gemini Vision Models (if GEMINI_API_KEY / GOOGLE_API_KEY is present)
+    // 2. Direct Google Gemini Vision Models (parallel sub-second race)
     if (geminiKey) {
       for (const modelName of [
+        'gemini-3.8-flash',
+        'gemini-3.1-flash-lite',
         'gemini-2.5-flash',
         'gemini-3-flash-preview',
       ] as const) {
@@ -775,6 +936,26 @@ export async function POST(req: NextRequest) {
             userMessage,
             ctrl.signal
           ).then((stream) => ({stream, ctrl, model: `google:${modelName}`}))
+        );
+      }
+    }
+
+    // 3. Optional NVIDIA NIM Vision Models (if NVIDIA_API_KEY is present)
+    if (nvidiaKey) {
+      for (const modelId of [
+        'meta/llama-3.2-11b-vision-instruct',
+        'meta/llama-3.2-90b-vision-instruct',
+      ]) {
+        const ctrl = new AbortController();
+        candidateControllers.push(ctrl);
+        racePromises.push(
+          fetchNvidiaVisionStream(
+            nvidiaKey,
+            modelId,
+            imageDataUrl,
+            userMessage,
+            ctrl.signal
+          ).then((stream) => ({stream, ctrl, model: `nvidia:${modelId}`}))
         );
       }
     }

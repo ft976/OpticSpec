@@ -83,13 +83,24 @@ const ZONE_LABELS = [
   'Bottom-Right',
 ];
 
+const CLIENT_TELEMETRY_CACHE = new Map<
+  string,
+  {compressedDataUrl: string; telemetry: PixelTelemetry}
+>();
+
 export async function extractImageTelemetryAndCompress(
   sourceUrlOrDataUrl: string,
-  maxDimension = 1024
+  maxDimension = 768
 ): Promise<{
   compressedDataUrl: string;
   telemetry: PixelTelemetry;
 }> {
+  const cacheKey = `${maxDimension}:${sourceUrlOrDataUrl.length}:${sourceUrlOrDataUrl.slice(0, 256)}:${sourceUrlOrDataUrl.slice(-128)}`;
+  const cached = CLIENT_TELEMETRY_CACHE.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -97,7 +108,7 @@ export async function extractImageTelemetryAndCompress(
       const origWidth = img.naturalWidth || img.width || 1024;
       const origHeight = img.naturalHeight || img.height || 1024;
 
-      // 1. High-clarity resize for vision model ingestion (1024px @ 0.85 JPEG to preserve small text & background characters)
+      // 1. High-speed optical resize for vision model ingestion (768px @ 0.84 JPEG to preserve small text & background characters while cutting upload/prefill latency)
       let targetW = origWidth;
       let targetH = origHeight;
       if (origWidth > maxDimension || origHeight > maxDimension) {
@@ -119,7 +130,7 @@ export async function extractImageTelemetryAndCompress(
         return;
       }
       tCtx.drawImage(img, 0, 0, targetW, targetH);
-      const compressedDataUrl = transportCanvas.toDataURL('image/jpeg', 0.85);
+      const compressedDataUrl = transportCanvas.toDataURL('image/jpeg', 0.84);
 
       // 2. 72x72 full-frame sampling grid (divisible by 3 for exact 3x3 9-zone spatial grid)
       const sampleSize = 72;
@@ -298,7 +309,7 @@ export async function extractImageTelemetryAndCompress(
       const aspectRatio = computeStandardAspectRatio(origWidth, origHeight);
       const megapixels = ((origWidth * origHeight) / 1_000_000).toFixed(2);
 
-      resolve({
+      const result = {
         compressedDataUrl,
         telemetry: {
           width: origWidth,
@@ -323,7 +334,15 @@ export async function extractImageTelemetryAndCompress(
           },
           swatches,
         },
-      });
+      };
+
+      if (CLIENT_TELEMETRY_CACHE.size >= 25) {
+        const firstKey = CLIENT_TELEMETRY_CACHE.keys().next().value;
+        if (firstKey) CLIENT_TELEMETRY_CACHE.delete(firstKey);
+      }
+      CLIENT_TELEMETRY_CACHE.set(cacheKey, result);
+
+      resolve(result);
     };
     img.onerror = () => {
       reject(new Error('Failed to decode image'));

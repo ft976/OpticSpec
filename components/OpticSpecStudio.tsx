@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useState, useRef, useEffect, useMemo} from 'react';
+import React, {useState, useRef, useEffect, useMemo, useCallback} from 'react';
 import {
   Upload,
   Copy,
@@ -31,78 +31,98 @@ export default function OpticSpecStudio() {
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
 
   const masterPromptOnly = useMemo(
     () => extractSectionCMasterPrompt(promptOutput),
     [promptOutput]
   );
 
-  const analyzeImage = async (dataUrl: string) => {
-    setErrorMsg(null);
-    setIsAnalyzing(true);
-    setPromptOutput('');
-
-    try {
-      const {compressedDataUrl, telemetry} =
-        await extractImageTelemetryAndCompress(dataUrl, 840);
-
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          imageDataUrl: compressedDataUrl,
-          telemetry,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to analyze image.');
+  const analyzeImage = useCallback(
+    async (sourceUrl: string, forceFresh = false) => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-      if (!response.body) {
-        const text = await response.text();
-        setPromptOutput(text.trim());
+      setErrorMsg(null);
+      setIsAnalyzing(true);
+      setPromptOutput('');
+
+      try {
+        const {compressedDataUrl, telemetry} =
+          await extractImageTelemetryAndCompress(sourceUrl, 768);
+
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          signal: controller.signal,
+          body: JSON.stringify({
+            imageDataUrl: compressedDataUrl,
+            telemetry,
+            forceFresh,
+          }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to analyze image.');
+        }
+
+        if (!response.body) {
+          const text = await response.text();
+          setPromptOutput(text.trim());
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = '';
+
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          if (value) {
+            accumulated += decoder.decode(value, {stream: true});
+            setPromptOutput(accumulated);
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        setErrorMsg(
+          err instanceof Error ? err.message : 'Failed to analyze image.'
+        );
+      } finally {
+        if (abortControllerRef.current === controller) {
+          setIsAnalyzing(false);
+        }
+      }
+    },
+    []
+  );
+
+  const handleFile = useCallback(
+    (file: File | undefined) => {
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        setErrorMsg('Please upload a valid image file (JPG, PNG, WEBP).');
         return;
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
-
-      while (true) {
-        const {done, value} = await reader.read();
-        if (done) break;
-        if (value) {
-          accumulated += decoder.decode(value, {stream: true});
-          setPromptOutput(accumulated);
-        }
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
       }
-    } catch (err) {
-      setErrorMsg(
-        err instanceof Error ? err.message : 'Failed to analyze image.'
-      );
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleFile = (file: File | undefined) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErrorMsg('Please upload a valid image file (JPG, PNG, WEBP).');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setImagePreview(reader.result);
-        analyzeImage(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
+      const previewUrl = URL.createObjectURL(file);
+      objectUrlRef.current = previewUrl;
+      setImagePreview(previewUrl);
+      void analyzeImage(previewUrl, false);
+    },
+    [analyzeImage]
+  );
 
   // Support Ctrl+V paste anywhere on the page
   useEffect(() => {
@@ -121,7 +141,7 @@ export default function OpticSpecStudio() {
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
-  });
+  }, [handleFile]);
 
   const handleCopyFull = () => {
     if (!promptOutput) return;
@@ -138,6 +158,15 @@ export default function OpticSpecStudio() {
   };
 
   const handleReset = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    setIsAnalyzing(false);
     setImagePreview(null);
     setPromptOutput('');
     setErrorMsg(null);
@@ -223,8 +252,7 @@ export default function OpticSpecStudio() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isAnalyzing}
-                className="px-3.5 py-1.5 text-xs font-medium text-white bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-1.5"
+                className="px-3.5 py-1.5 text-xs font-medium text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors flex items-center gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Upload Different Image</span>
@@ -233,9 +261,8 @@ export default function OpticSpecStudio() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => analyzeImage(imagePreview)}
-                  disabled={isAnalyzing}
-                  className="px-3.5 py-1.5 text-xs font-medium text-neutral-200 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-1.5"
+                  onClick={() => analyzeImage(imagePreview, true)}
+                  className="px-3.5 py-1.5 text-xs font-medium text-neutral-200 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 rounded-lg transition-colors flex items-center gap-1.5"
                 >
                   <RefreshCw
                     className={`w-3.5 h-3.5 ${
@@ -248,7 +275,6 @@ export default function OpticSpecStudio() {
                 <button
                   type="button"
                   onClick={handleReset}
-                  disabled={isAnalyzing}
                   title="Remove image"
                   className="p-1.5 text-neutral-400 hover:text-red-400 bg-neutral-900 border border-neutral-800 rounded-lg transition-colors"
                 >
@@ -269,7 +295,7 @@ export default function OpticSpecStudio() {
             {imagePreview && (
               <button
                 type="button"
-                onClick={() => analyzeImage(imagePreview)}
+                onClick={() => analyzeImage(imagePreview, true)}
                 className="px-3 py-1.5 text-xs font-medium bg-red-900/60 hover:bg-red-800 text-white rounded-lg shrink-0"
               >
                 Retry

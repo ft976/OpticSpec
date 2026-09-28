@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 680" fill="none">
+  <!-- Browser Window Frame -->
+  <rect width="1100" height="680" rx="18" fill="#0B0F17"/>
+  <rect x="1.5" y="1.5" width="1097" height="677" rx="16.5" stroke="#1E293B" stroke-width="3"/>
+
+  <!-- Browser Top Chrome -->
+  <rect x="3" y="3" width="1094" height="44" rx="14" fill="#070A10"/>
+  <line x1="3" y1="47" x2="1097" y2="47" stroke="#1E293B" stroke-width="1.5"/>
+  <circle cx="28" cy="25" r="6" fill="#EF4444"/>
+  <circle cx="48" cy="25" r="6" fill="#F59E0B"/>
+  <circle cx="68" cy="25" r="6" fill="#10B981"/>
+  <rect x="340" y="12" width="420" height="26" rx="6" fill="#111723" stroke="#1E293B"/>
+  <text x="550" y="29" text-anchor="middle" fill="#94A3B8" font-family="monospace" font-size="12">https://opticspec.vercel.app</text>
+
+  <!-- App Header Bar -->
+  <line x1="3" y1="112" x2="1097" y2="112" stroke="#1F2937" stroke-width="1.5"/>
+  <rect x="210" y="64" width="34" height="34" rx="8" fill="#111723" stroke="#262626" stroke-width="1.5"/>
+  <!-- ScanEye Icon -->
+  <path d="M220 76V73C220 72 221 71 222 71H225" stroke="#76B900" stroke-width="2" stroke-linecap="round"/>
+  <path d="M234 76V73C234 72 233 71 232 71H229" stroke="#76B900" stroke-width="2" stroke-linecap="round"/>
+  <path d="M220 86V89C220 90 221 91 222 91H225" stroke="#76B900" stroke-width="2" stroke-linecap="round"/>
+  <path d="M234 86V89C234 90 233 91 232 91H229" stroke="#76B900" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="227" cy="81" r="4.5" stroke="#F8FAFC" stroke-width="2"/>
+  <circle cx="227" cy="81" r="1.8" fill="#76B900"/>
+
+  <text x="256" y="87" fill="#FFFFFF" font-family="sans-serif" font-size="20" font-weight="700">OpticSpec</text>
+  <text x="360" y="87" fill="#9CA3AF" font-family="sans-serif" font-size="15" font-weight="400">Image to Prompt</text>
+
+  <!-- Centered Upload Dropzone -->
+  <rect x="210" y="160" width="680" height="360" rx="20" fill="#111723" stroke="#262626" stroke-width="2" stroke-dasharray="8 8"/>
+  <circle cx="550" cy="305" r="30" fill="#171717" stroke="#262626" stroke-width="1.5"/>
+  <!-- Upload Arrow Icon -->
+  <path d="M550 315V295" stroke="#76B900" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M543 302L550 295L557 302" stroke="#76B900" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M540 318H560" stroke="#76B900" stroke-width="2.5" stroke-linecap="round"/>
+
+  <text x="550" y="362" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="18" font-weight="600">Click to upload an image</text>
+  <text x="550" y="390" text-anchor="middle" fill="#9CA3AF" font-family="sans-serif" font-size="13">or drag &amp; drop / press <tspan fill="#D1D5DB" font-family="monospace">Ctrl+V</tspan> to paste</text>
+
+  <!-- Footer Attribution -->
+  <text x="550" y="635" text-anchor="middle" fill="#9CA3AF" font-family="sans-serif" font-size="14" font-weight="500">Developed by Rehan...🌻</text>
+</svg>

@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" fill="none">
+  <rect width="1200" height="760" rx="18" fill="#0B0F17"/>
+  <rect x="8" y="8" width="1184" height="744" rx="14" stroke="#1E293B" stroke-width="2"/>
+
+  <!-- Browser Top Bar -->
+  <rect x="8" y="8" width="1184" height="44" rx="14" fill="#111723"/>
+  <circle cx="34" cy="30" r="6" fill="#EF4444"/>
+  <circle cx="54" cy="30" r="6" fill="#F59E0B"/>
+  <circle cx="74" cy="30" r="6" fill="#10B981"/>
+  <rect x="400" y="18" width="400" height="24" rx="6" fill="#0B0F17" stroke="#1E293B"/>
+  <text x="600" y="34" text-anchor="middle" fill="#94A3B8" font-family="monospace" font-size="12">https://opticspec.app — Sections A–F Live Breakdown</text>
+
+  <!-- App Action Bar -->
+  <text x="60" y="92" fill="#F8FAFC" font-family="sans-serif" font-size="17" font-weight="bold">Generated Master Prompt &amp; Full-Frame Analysis (A–F)</text>
+  <rect x="735" y="70" width="215" height="34" rx="8" fill="#10B981"/>
+  <text x="842" y="92" text-anchor="middle" fill="#052E16" font-family="sans-serif" font-size="12" font-weight="bold">Copy Master Prompt (C)</text>
+  <rect x="962" y="70" width="178" height="34" rx="8" fill="#161F30" stroke="#334155"/>
+  <text x="1051" y="92" text-anchor="middle" fill="#E2E8F0" font-family="sans-serif" font-size="12" font-weight="bold">Copy Full Output</text>
+
+  <line x1="60" y1="118" x2="1140" y2="118" stroke="#1E293B" stroke-width="1.5"/>
+
+  <!-- Section B Grid (Left Column) -->
+  <text x="60" y="150" fill="#38BDF8" font-family="sans-serif" font-size="15" font-weight="bold">### B. Detailed Breakdown (10-Point Inspection)</text>
+
+  <rect x="60" y="166" width="520" height="96" rx="10" fill="#111723" stroke="#1E293B"/>
+  <text x="78" y="190" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="bold">1. Frame &amp; Composition + 2. Characters &amp; Persons</text>
+  <text x="78" y="212" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">• Eye-level three-quarter wide shot (16:9), shallow depth of field.</text>
+  <text x="78" y="230" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">• 1 person fully visible: young woman (appears to be 20s) in midground,</text>
+  <text x="78" y="248" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">  charcoal waterproof trench coat, holding clear umbrella, calm focus.</text>
+
+  <rect x="60" y="276" width="520" height="96" rx="10" fill="#111723" stroke="#1E293B"/>
+  <text x="78" y="300" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="bold">4. Written Text (OCR) + 5. Colours &amp; Hex Palette</text>
+  <text x="78" y="322" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">• Upper-right brick wall sign: "OPEN 24H" in glowing amber/cyan neon.</text>
+  <text x="78" y="340" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">• Palette: Deep Obsidian (#0D131F, 41%), Neon Cyan (#38BDF8, 18%),</text>
+  <text x="78" y="358" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">  Warm Amber (#F59E0B, 14%), Wet Slate Asphalt (#1E293B, 27%).</text>
+
+  <rect x="60" y="386" width="520" height="96" rx="10" fill="#111723" stroke="#1E293B"/>
+  <text x="78" y="410" fill="#F8FAFC" font-family="sans-serif" font-size="13" font-weight="bold">6. Lighting &amp; Shadows + 8. Motion &amp; Stillness</text>
+  <text x="78" y="432" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">• Dual-source neon key light from upper-right (~3200K amber + ~6500K cyan).</text>
+  <text x="78" y="450" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">• Falling rain streaks frozen mid-air; specular ripples in foreground puddles.</text>
+  <text x="78" y="468" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">• Low-key nocturnal exposure (~34% mean frame luminance).</text>
+
+  <!-- Right Column: Sections C, D, E, F -->
+  <text x="610" y="150" fill="#10B981" font-family="sans-serif" font-size="15" font-weight="bold">### C. Final Master Prompt (Paste-Ready Paragraph)</text>
+  <rect x="610" y="166" width="530" height="175" rx="10" fill="#0F1922" stroke="#10B981" stroke-width="1.5"/>
+  <text x="628" y="192" fill="#E2E8F0" font-family="monospace" font-size="11.5">Cinematic nocturnal street photograph, eye-level three-quarter wide</text>
+  <text x="628" y="212" fill="#E2E8F0" font-family="monospace" font-size="11.5">angle (16:9), a young woman (appears to be in her 20s) with dark</text>
+  <text x="628" y="232" fill="#E2E8F0" font-family="monospace" font-size="11.5">shoulder-length hair wearing a matte charcoal waterproof trench coat</text>
+  <text x="628" y="252" fill="#E2E8F0" font-family="monospace" font-size="11.5">standing in the midground holding a transparent dome umbrella, gazing</text>
+  <text x="628" y="272" fill="#E2E8F0" font-family="monospace" font-size="11.5">toward a glowing neon sign on the upper-right brick wall reading</text>
+  <text x="628" y="292" fill="#E2E8F0" font-family="monospace" font-size="11.5">"OPEN 24H", wet cobblestone alley reflecting cyan (#38BDF8) and amber</text>
+  <text x="628" y="312" fill="#10B981" font-family="monospace" font-size="11.5">(#F59E0B) light. Preserve original composition, colours, and text.</text>
+
+  <text x="610" y="370" fill="#F59E0B" font-family="sans-serif" font-size="14" font-weight="bold">### D. Negative Prompt</text>
+  <rect x="610" y="382" width="530" height="64" rx="10" fill="#111723" stroke="#1E293B"/>
+  <text x="628" y="406" fill="#94A3B8" font-family="monospace" font-size="11.5">extra people, extra fingers, distorted face, daylight, dry pavement,</text>
+  <text x="628" y="426" fill="#94A3B8" font-family="monospace" font-size="11.5">misspelled neon text, missing umbrella, watermark, blurry foreground.</text>
+
+  <text x="610" y="474" fill="#38BDF8" font-family="sans-serif" font-size="14" font-weight="bold">### E. Short Version (&lt;75 words) &amp; ### F. Uncertainty Notes</text>
+  <rect x="610" y="486" width="530" height="190" rx="10" fill="#111723" stroke="#1E293B"/>
+  <text x="628" y="512" fill="#E2E8F0" font-family="sans-serif" font-size="12" font-weight="bold">E. Short Version:</text>
+  <text x="628" y="532" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">Photorealistic night street photo of a young woman in a charcoal trench coat</text>
+  <text x="628" y="550" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">holding a clear umbrella in a rain-slicked alley under an "OPEN 24H" neon</text>
+  <text x="628" y="568" fill="#CBD5E1" font-family="sans-serif" font-size="11.5">sign, cyan and amber puddle reflections, moody low-key cinematic lighting.</text>
+
+  <text x="628" y="604" fill="#F59E0B" font-family="sans-serif" font-size="12" font-weight="bold">F. Uncertainty Notes:</text>
+  <text x="628" y="624" fill="#94A3B8" font-family="sans-serif" font-size="11.5">• Small secondary sticker text on the distant utility pole is blurred/unreadable.</text>
+  <text x="628" y="644" fill="#94A3B8" font-family="sans-serif" font-size="11.5">• Footwear is cropped below the bottom edge of the frame.</text>
+
+  <!-- Checklist Verification Card -->
+  <rect x="60" y="498" width="520" height="178" rx="10" fill="#111723" stroke="#1E293B"/>
+  <text x="78" y="524" fill="#10B981" font-family="sans-serif" font-size="13" font-weight="bold">Pass 7: Final Quality Check Verified</text>
+  <text x="78" y="548" fill="#CBD5E1" font-family="monospace" font-size="11.5">[x] Every person counted (including partial &amp; background)</text>
+  <text x="78" y="568" fill="#CBD5E1" font-family="monospace" font-size="11.5">[x] Apparent gender presentation &amp; age group stated as "appears to be"</text>
+  <text x="78" y="588" fill="#CBD5E1" font-family="monospace" font-size="11.5">[x] All visible written text ("OPEN 24H") transcribed &amp; placed</text>
+  <text x="78" y="608" fill="#CBD5E1" font-family="monospace" font-size="11.5">[x] Exact HEX colours, lighting direction, and motion covered</text>
+  <text x="78" y="628" fill="#CBD5E1" font-family="monospace" font-size="11.5">[x] Nothing invented; unclear details isolated in Section F</text>
+  <text x="78" y="648" fill="#CBD5E1" font-family="monospace" font-size="11.5">[x] All Sections A, B, C, D, E, F delivered in strict order</text>
+
+  <!-- Footer -->
+  <text x="600" y="725" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="13">Developed by Rehan...🌻</text>
+</svg>

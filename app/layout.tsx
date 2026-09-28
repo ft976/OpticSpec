@@ -20,7 +20,11 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-mono',
 });
 
-const appUrl = process.env.APP_URL || 'https://opticspec.app';
+const appUrl =
+  process.env.APP_URL ||
+  (process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'https://opticspec.vercel.app');
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
